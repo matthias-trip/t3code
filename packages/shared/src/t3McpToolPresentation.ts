@@ -86,7 +86,7 @@ function tool(
   return { displayName, labels, icon, summaryAction };
 }
 
-// Codex registers "t3-code-direct" for T3 tools kept out of Code Mode.
+// Codex registers "t3-code-direct" for Claude Code tools kept out of Code Mode.
 const T3_MCP_SERVER_ALIASES = new Set([
   "t3-code",
   "t3_code",
@@ -162,12 +162,12 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
     "schedule-delete",
   ),
   request_secret: tool(["Ask for", "Asking for", "Asked for", "a secret"], "secret-request"),
-  create_threads: tool(["Create", "Creating", "Created", "T3 threads"], "thread-create"),
-  t3_thread_start: tool(["Start", "Starting", "Started", "a T3 thread"], "thread-create"),
-  t3_thread_list: tool(["List", "Listing", "Listed", "T3 threads"], "thread-list"),
-  t3_thread_read: tool(["Read", "Reading", "Read", "a T3 thread"], "thread-read"),
-  t3_thread_send: tool(["Send", "Sending", "Sent", "to a T3 thread"], "thread-send"),
-  t3_thread_wait: tool(["Wait", "Waiting", "Waited", "for a T3 thread"], "thread-wait"),
+  create_threads: tool(["Create", "Creating", "Created", "Claude Code threads"], "thread-create"),
+  t3_thread_start: tool(["Start", "Starting", "Started", "a Claude Code thread"], "thread-create"),
+  t3_thread_list: tool(["List", "Listing", "Listed", "Claude Code threads"], "thread-list"),
+  t3_thread_read: tool(["Read", "Reading", "Read", "a Claude Code thread"], "thread-read"),
+  t3_thread_send: tool(["Send", "Sending", "Sent", "to a Claude Code thread"], "thread-send"),
+  t3_thread_wait: tool(["Wait", "Waiting", "Waited", "for a Claude Code thread"], "thread-wait"),
   t3_workflow_stop: tool(
     ["Stop", "Stopping", "Requested a stop for", "a workflow"],
     "workflow-stop",
@@ -177,7 +177,7 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
     "background-wait",
   ),
   t3_thread_interrupt: tool(
-    ["Interrupt", "Interrupting", "Requested an interrupt of", "a T3 thread"],
+    ["Interrupt", "Interrupting", "Requested an interrupt of", "a Claude Code thread"],
     "thread-interrupt",
   ),
   t3_worktree_handoff: tool(
@@ -330,7 +330,7 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   t3_thread_search: tool(["Search", "Searching", "Searched", "thread content"], "thread-search"),
   t3_thread_transfers: tool(["Read", "Reading", "Read", "thread transfers"], "thread-transfers"),
   t3_thread_organize: tool(["Organize", "Organizing", "Organized", "a thread"], "thread-organize"),
-  t3_thread_update: tool(["Update", "Updating", "Updated", "T3 thread metadata"], "thread-update"),
+  t3_thread_update: tool(["Update", "Updating", "Updated", "Claude Code thread metadata"], "thread-update"),
   t3_worktree_list: tool(["List", "Listing", "Listed", "workspace branches"], "worktree-list"),
   t3_preview_list: tool(["List", "Listing", "Listed", "preview tabs"], "browser", "browser"),
   t3_preview_close: tool(["Close", "Closing", "Closed", "a preview tab"], "browser", "browser"),
