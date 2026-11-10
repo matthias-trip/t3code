@@ -13,23 +13,30 @@ import * as path from "node:path";
 const root = path.resolve(process.argv[2] ?? path.join(import.meta.dirname, ".."));
 const MAX_BYTES = 8 * 1024 * 1024;
 
-// Where user-facing text lives.
-const INCLUDE = [
+// The interface itself: every rule applies, including the bare word "T3".
+const INTERFACE = [
   /^apps\/web\//,
   /^apps\/desktop\//,
-  /^apps\/server\/src\//,
+  /^apps\/server\/src\/cli\//,
   /^packages\/(?:shared|client-runtime)\/src\//,
   /^scripts\/build-desktop-artifact(?:\.test)?\.ts$/,
 ];
-// Text written for agents and other programs, not for people.
-const EXCLUDE = [
-  /mcp/i,
-  /instructions/i,
-  /prompt/i,
-  /^apps\/server\/src\/(?:provider|orchestration-v2)\//,
-  /\/fixtures\//,
-  /\.snap$/,
-];
+// Server and provider code, whose status and error messages reach the
+// interface: only the product names change.
+const MESSAGES = [/^apps\/server\/src\//, /^packages\/[^/]+\/src\//];
+// Text written for agents and other programs, not for people. The web and
+// desktop apps are exempt: their files with these names are screens.
+const AGENT_FACING = [/mcp/i, /instructions/i, /prompt/i, /textGeneration/i, /pullRequestWatch/i, /testkit/];
+const NEVER = [/\/fixtures\//, /\.snap$/];
+
+function rulesFor(file) {
+  if (NEVER.some((pattern) => pattern.test(file))) return null;
+  const screen = /^apps\/(?:web|desktop)\//.test(file);
+  if (!screen && AGENT_FACING.some((pattern) => pattern.test(file))) return null;
+  if (INTERFACE.some((pattern) => pattern.test(file))) return RULES;
+  if (MESSAGES.some((pattern) => pattern.test(file))) return PRODUCT_RULES;
+  return null;
+}
 
 // Left alone even inside user-facing files.
 const PROTECTED = [
@@ -49,15 +56,17 @@ const RULES = [
   ],
 ];
 
+const PRODUCT_RULES = RULES.slice(0, 2);
+
 const git = (...args) =>
   execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 1 << 28 });
 
-function rewrite(text) {
+function rewrite(text, rules) {
   const held = [];
   for (const pattern of PROTECTED) {
     text = text.replace(pattern, (match) => `\u0001${held.push(match) - 1}\u0002`);
   }
-  for (const [pattern, replacement] of RULES) text = text.replace(pattern, replacement);
+  for (const [pattern, replacement] of rules) text = text.replace(pattern, replacement);
   return text.replace(/\u0001(\d+)\u0002/g, (_, index) => held[Number(index)]);
 }
 
@@ -65,8 +74,8 @@ const stats = { files: 0, changed: 0, patched: 0 };
 const failures = [];
 
 for (const file of git("ls-files", "-z").split("\0")) {
-  if (!INCLUDE.some((pattern) => pattern.test(file))) continue;
-  if (EXCLUDE.some((pattern) => pattern.test(file))) continue;
+  const rules = rulesFor(file);
+  if (!rules) continue;
   const absolute = path.join(root, file);
   const stat = fs.lstatSync(absolute, { throwIfNoEntry: false });
   if (!stat?.isFile() || stat.size > MAX_BYTES) continue;
@@ -74,7 +83,7 @@ for (const file of git("ls-files", "-z").split("\0")) {
   if (buffer.subarray(0, 8192).includes(0)) continue;
   stats.files += 1;
   const before = buffer.toString("utf8");
-  const after = rewrite(before);
+  const after = rewrite(before, rules);
   if (after !== before) {
     fs.writeFileSync(absolute, after);
     stats.changed += 1;

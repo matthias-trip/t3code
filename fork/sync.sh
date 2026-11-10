@@ -40,42 +40,43 @@ fail() {
 git fetch --quiet --no-tags upstream "refs/tags/$tag:refs/tags/$tag" || fail "could not fetch $tag"
 git fetch --quiet origin || true
 
+# Rebrand the release into a tree. This runs every time, not only for a new
+# tag, so a change to the rebrand rules reaches the branch on the next run.
+work="$(mktemp -d "${TMPDIR:-/tmp}/claude-code-sync.XXXXXX")"
+cleanup() {
+  git worktree remove --force "$work/tree" >/dev/null 2>&1 || true
+  rm -rf "$work"
+}
+trap cleanup EXIT
+# The rebrand in use is the one committed on claude-code, run from a copy so
+# the vendor tree holds only upstream files.
+git archive HEAD fork | tar -x -C "$work"
+git worktree add --quiet --detach "$work/tree" "$tag"
+node "$work/fork/rebrand.mjs" "$work/tree" "${tag#v}" || fail "rebrand no longer applies to $tag"
+git -C "$work/tree" add -A
+tree="$(git -C "$work/tree" write-tree)"
+cleanup
+trap - EXIT
+
+# A retry after a failed merge finds the same tree already on the vendor
+# branch and must not stack a second commit on it.
+if [[ "$(git rev-parse --quiet --verify "$VENDOR_BRANCH^{tree}" || true)" != "$tree" ]]; then
+  parents=()
+  if git rev-parse --quiet --verify "refs/heads/$VENDOR_BRANCH" >/dev/null; then
+    parents+=(-p "$VENDOR_BRANCH")
+    git merge-base --is-ancestor "$tag^{commit}" "$VENDOR_BRANCH" || parents+=(-p "$tag^{commit}")
+  else
+    parents+=(-p "$tag^{commit}")
+  fi
+  vendor="$(git commit-tree "$tree" "${parents[@]}" -m "Rebrand upstream $tag as Claude Code")"
+  git update-ref "refs/heads/$VENDOR_BRANCH" "$vendor"
+fi
+
 merged=false
-if git merge-base --is-ancestor "$tag^{commit}" HEAD; then
+if git merge-base --is-ancestor "$VENDOR_BRANCH" HEAD; then
   log "$tag is already merged"
 else
   log "Merging upstream $tag"
-  work="$(mktemp -d "${TMPDIR:-/tmp}/claude-code-sync.XXXXXX")"
-  cleanup() {
-    git worktree remove --force "$work/tree" >/dev/null 2>&1 || true
-    rm -rf "$work"
-  }
-  trap cleanup EXIT
-
-  # The rebrand in use is the one committed on claude-code, run from a copy so
-  # the vendor tree holds only upstream files.
-  mkdir "$work/fork"
-  git archive HEAD fork | tar -x -C "$work"
-  git worktree add --quiet --detach "$work/tree" "$tag"
-  node "$work/fork/rebrand.mjs" "$work/tree" "${tag#v}" || fail "rebrand no longer applies to $tag"
-  git -C "$work/tree" add -A
-  tree="$(git -C "$work/tree" write-tree)"
-  # A retry after a failed merge finds the same tree already on the vendor
-  # branch and must not stack a second commit on it.
-  if [[ "$(git rev-parse --quiet --verify "$VENDOR_BRANCH^{tree}" || true)" != "$tree" ]]; then
-    parents=()
-    if git rev-parse --quiet --verify "refs/heads/$VENDOR_BRANCH" >/dev/null; then
-      parents+=(-p "$VENDOR_BRANCH")
-      git merge-base --is-ancestor "$tag^{commit}" "$VENDOR_BRANCH" || parents+=(-p "$tag^{commit}")
-    else
-      parents+=(-p "$tag^{commit}")
-    fi
-    vendor="$(git commit-tree "$tree" "${parents[@]}" -m "Rebrand upstream $tag as Claude Code")"
-    git update-ref "refs/heads/$VENDOR_BRANCH" "$vendor"
-  fi
-  cleanup
-  trap - EXIT
-
   if ! git merge --no-verify --no-edit -m "Merge upstream $tag" "$VENDOR_BRANCH" >"$LOGS/merge.log" 2>&1; then
     git merge --abort || true
     fail "merge of $tag conflicts with local changes; see $LOGS/merge.log"
