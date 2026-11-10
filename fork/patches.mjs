@@ -1,0 +1,114 @@
+// Edits applied after the text pass, so anchors use the already renamed text.
+// `find` must match or the rebrand fails; `done` marks an already patched file.
+
+const BUILD = "scripts/build-desktop-artifact.ts";
+const BUNDLE_ID = "com.mytek.claudecode";
+
+const WORDMARK = `import type { SVGProps } from "react";
+
+export function T3Wordmark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} viewBox="0 0 94 57" xmlns="http://www.w3.org/2000/svg">
+      <text
+        x="0"
+        y="56"
+        fill="currentColor"
+        fontFamily="system-ui, sans-serif"
+        fontSize="78"
+        fontWeight="800"
+        lengthAdjust="spacingAndGlyphs"
+        textLength="94"
+      >
+        CC
+      </text>
+    </svg>
+  );
+}
+`;
+
+const SIGNING = `            provisioningProfile: macPasskeySigning.provisioningProfilePath,
+          }
+        : signed
+          ? {
+              hardenedRuntime: true,
+              entitlements: path.join(repoRoot, "fork/entitlements.mac.plist"),
+              entitlementsInherit: path.join(repoRoot, "fork/entitlements.mac.plist"),
+              ...(process.env.FORK_MAC_IDENTITY ? { identity: process.env.FORK_MAC_IDENTITY } : {}),
+              ...(process.env.FORK_MAC_SIGN_TYPE === "development" ? { type: "development" } : {}),
+              ...(process.env.FORK_MAC_NOTARIZE === "true" ? {} : { notarize: false }),
+            }
+          : {}),
+    };`;
+
+export const PATCHES = [
+  {
+    why: "the bundle ID belongs to this fork",
+    file: BUILD,
+    find: 'const DESKTOP_APP_ID = "com.t3tools.t3code";',
+    replace: `const DESKTOP_APP_ID = "${BUNDLE_ID}";`,
+    done: `const DESKTOP_APP_ID = "${BUNDLE_ID}";`,
+  },
+  {
+    why: "the app is named Claude Code, without a stage suffix",
+    file: "apps/desktop/package.json",
+    find: '"productName": "Claude Code (Beta)"',
+    replace: '"productName": "Claude Code"',
+    done: '"productName": "Claude Code"',
+  },
+  {
+    why: "window title and About panel say Claude Code, not Claude Code (Beta)",
+    file: "apps/desktop/src/app/DesktopEnvironment.ts",
+    find: "displayName: `${APP_BASE_NAME} (${stageLabel})`,",
+    replace:
+      'displayName: stageLabel === "Beta" ? APP_BASE_NAME : `${APP_BASE_NAME} (${stageLabel})`,',
+    done: 'displayName: stageLabel === "Beta" ? APP_BASE_NAME',
+  },
+  {
+    why: "sign without the passkey provisioning profile only the official team has",
+    file: BUILD,
+    find: 'options.platform === "mac" && options.signed\n      ? yield* Effect.try({',
+    replace:
+      'options.platform === "mac" &&\n    options.signed &&\n    Boolean(loadRepoEnv({ repoRoot }).T3CODE_MACOS_PROVISIONING_PROFILE?.trim())\n      ? yield* Effect.try({',
+    done: "T3CODE_MACOS_PROVISIONING_PROFILE?.trim())",
+  },
+  {
+    why: "hardened-runtime entitlements and signing identity for profile-less signing",
+    file: BUILD,
+    find: "            provisioningProfile: macPasskeySigning.provisioningProfilePath,\n          }\n        : {}),\n    };",
+    replace: SIGNING,
+    done: "fork/entitlements.mac.plist",
+  },
+  {
+    why: "updates come from this fork's download page, never from upstream releases",
+    file: BUILD,
+    find: "  buildConfig.publish = null;\n",
+    replace:
+      '  buildConfig.publish = null;\n  const forkUpdateUrl = process.env.FORK_UPDATE_URL?.trim();\n  if (forkUpdateUrl) buildConfig.publish = [{ provider: "generic", url: forkUpdateUrl }];\n',
+    done: "forkUpdateUrl",
+  },
+  {
+    why: "an unofficial build must not report usage to upstream unless asked to",
+    file: "apps/server/src/telemetry/AnalyticsService.ts",
+    find: 'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(true)),',
+    replace:
+      'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),',
+    done: 'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),',
+  },
+  {
+    why: "the T3 logo glyph becomes a CC monogram",
+    file: "apps/web/src/components/T3Wordmark.tsx",
+    find: /^[\s\S]*export function T3Wordmark[\s\S]*$/,
+    replace: WORDMARK,
+    done: 'textLength="94"',
+  },
+  {
+    why: "the sidebar reads Claude Code instead of the T3 glyph plus Code",
+    file: "apps/web/src/components/sidebar/SidebarChrome.tsx",
+    find: '<T3Wordmark aria-label="T3" className="h-[1cap] w-auto shrink-0" />',
+    replace: '<span className="shrink-0 font-semibold">Claude</span>',
+    done: '<span className="shrink-0 font-semibold">Claude</span>',
+  },
+];
+
+// Upstream CI and release automation must not run from this fork.
+export const REMOVE = [".github/workflows"];

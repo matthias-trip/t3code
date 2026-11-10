@@ -1,0 +1,84 @@
+#!/bin/bash
+# Daily sync: merges the latest stable T3 Code release into this fork, then
+# builds and publishes it. Safe to run at any time; with nothing new it exits.
+#
+# Each upstream release is rebranded onto the vendor branch as one commit, and
+# that branch is merged into claude-code. The rename is replayed by script, so
+# upstream changes never conflict with it; only hand edits made on claude-code
+# can conflict, and then the sync stops and leaves everything as it was.
+#
+# Usage: sync.sh [--force-build] [tag]
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+cd "$REPO"
+
+force_build=false
+tag=""
+for arg in "$@"; do
+  if [[ "$arg" == "--force-build" ]]; then force_build=true; else tag="$arg"; fi
+done
+
+fail() {
+  log "FAILED: $*"
+  notify "Claude Code sync failed" "$*"
+  exit 1
+}
+
+[[ "$(git rev-parse --abbrev-ref HEAD)" == "$BRANCH" ]] || fail "checkout is not on $BRANCH"
+[[ -z "$(git status --porcelain)" ]] || fail "checkout has uncommitted changes"
+
+# Stable releases only: nightlies and previews are prereleases, which
+# releases/latest never returns.
+[[ -n "$tag" ]] || tag="$(gh api "repos/$UPSTREAM_REPO/releases/latest" --jq .tag_name)" ||
+  fail "could not read the latest upstream release"
+[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "unexpected release tag '$tag'"
+git fetch --quiet --no-tags upstream "refs/tags/$tag:refs/tags/$tag" || fail "could not fetch $tag"
+git fetch --quiet origin || true
+
+merged=false
+if git merge-base --is-ancestor "$tag^{commit}" HEAD; then
+  log "$tag is already merged"
+else
+  log "Merging upstream $tag"
+  work="$(mktemp -d "${TMPDIR:-/tmp}/claude-code-sync.XXXXXX")"
+  cleanup() {
+    git worktree remove --force "$work/tree" >/dev/null 2>&1 || true
+    rm -rf "$work"
+  }
+  trap cleanup EXIT
+
+  # The rebrand in use is the one committed on claude-code, run from a copy so
+  # the vendor tree holds only upstream files.
+  mkdir "$work/fork"
+  git archive HEAD fork | tar -x -C "$work"
+  git worktree add --quiet --detach "$work/tree" "$tag"
+  node "$work/fork/rebrand.mjs" "$work/tree" "${tag#v}" || fail "rebrand no longer applies to $tag"
+  git -C "$work/tree" add -A
+  tree="$(git -C "$work/tree" write-tree)"
+  parents=(-p "$tag^{commit}")
+  if git rev-parse --quiet --verify "refs/heads/$VENDOR_BRANCH" >/dev/null; then
+    parents=(-p "$VENDOR_BRANCH" "${parents[@]}")
+  fi
+  vendor="$(git commit-tree "$tree" "${parents[@]}" -m "Rebrand upstream $tag as Claude Code")"
+  git update-ref "refs/heads/$VENDOR_BRANCH" "$vendor"
+  cleanup
+  trap - EXIT
+
+  if ! git merge --no-verify --no-edit -m "Merge upstream $tag" "$VENDOR_BRANCH" >"$LOGS/merge.log" 2>&1; then
+    git merge --abort || true
+    fail "merge of $tag conflicts with local changes; see $LOGS/merge.log"
+  fi
+  merged=true
+  git push --quiet origin "$BRANCH" "$VENDOR_BRANCH" || log "Push failed; continuing with the local merge"
+fi
+
+published="$(jq -r '.tag // empty' "$DOWNLOADS/build.json" 2>/dev/null || true)"
+published_commit="$(jq -r '.commit // empty' "$DOWNLOADS/build.json" 2>/dev/null || true)"
+if [[ "$merged" == false && "$force_build" == false && "$published" == "$(base_tag)" &&
+  "$published_commit" == "$(git rev-parse --short=12 HEAD)" ]]; then
+  log "Build for $published is already published; nothing to do"
+  exit 0
+fi
+
+"$REPO/fork/build.sh" || fail "build of $(base_tag) failed; the previous build stays published"
+notify "Claude Code $(base_tag) is ready" "A new signed build is on the download page."
