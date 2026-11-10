@@ -77,7 +77,7 @@ describe("electron development launcher", () => {
   it("keeps the native Electron executable name inside the branded macOS bundle", () => {
     const paths = resolveMacLauncherPaths(
       "/repo/apps/desktop/.electron-runtime/Claude Code (Dev).app",
-      "T3 Code (Dev)",
+      "Claude Code (Dev)",
     );
 
     assert.equal(paths.launcherExecutableName, "Claude Code (Dev) Launcher");
