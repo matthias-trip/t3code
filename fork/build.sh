@@ -33,11 +33,14 @@ if grep -q '"Developer ID Application: ' <<<"$identities"; then
   profile="${FORK_NOTARY_PROFILE:-claude-code-notary}"
   # A Developer ID build that is not notarized is still blocked by Gatekeeper,
   # so a missing profile stops the build instead of quietly publishing one.
-  if xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
-    export APPLE_KEYCHAIN_PROFILE="$profile" FORK_MAC_NOTARIZE=true
+  # Name the keychain: without it notarytool can pick up a same-named profile
+  # elsewhere, and the System keychain is locked whenever nobody is at the Mac.
+  keychain="$HOME/Library/Keychains/login.keychain-db"
+  if xcrun notarytool history --keychain-profile "$profile" --keychain "$keychain" >/dev/null 2>&1; then
+    export APPLE_KEYCHAIN_PROFILE="$profile" APPLE_KEYCHAIN="$keychain" FORK_MAC_NOTARIZE=true
     notarized=true
   elif [[ "${FORK_ALLOW_UNNOTARIZED:-}" != "true" ]]; then
-    log "Notarization profile '$profile' is missing from the keychain. Restore it with: xcrun notarytool store-credentials $profile"
+    log "Notarization profile '$profile' is missing from the login keychain or its password is rejected. Restore it with: xcrun notarytool store-credentials $profile --keychain $keychain"
     exit 1
   fi
 elif grep -q '"Apple Development: ' <<<"$identities"; then
