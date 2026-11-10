@@ -3,6 +3,10 @@
 
 const BUILD = "scripts/build-desktop-artifact.ts";
 const BUNDLE_ID = "com.mytek.claudecode";
+// Own data directory, browser profile and keychain entry: sharing T3 Code's
+// makes the two apps lock each other out.
+const HOME_DIR = ".claude-code-app";
+const PROFILE_DIR = "claude-code-app";
 
 const WORDMARK = `import type { SVGProps } from "react";
 
@@ -47,6 +51,41 @@ export const PATCHES = [
     find: 'const DESKTOP_APP_ID = "com.t3tools.t3code";',
     replace: `const DESKTOP_APP_ID = "${BUNDLE_ID}";`,
     done: `const DESKTOP_APP_ID = "${BUNDLE_ID}";`,
+  },
+  {
+    why: "the desktop app keeps its data apart from a T3 Code install",
+    file: "apps/desktop/src/app/DesktopStatePaths.ts",
+    find: 'input.joinPath(input.homeDirectory, ".t3"),',
+    replace: `input.joinPath(input.homeDirectory, "${HOME_DIR}"),`,
+    done: `input.joinPath(input.homeDirectory, "${HOME_DIR}"),`,
+  },
+  {
+    why: "the bundled server and CLI default to the same data directory",
+    file: "apps/server/src/os-jank.ts",
+    find: 'return join(yield* HostProcess.HomeDirectory, ".t3");',
+    replace: `return join(yield* HostProcess.HomeDirectory, "${HOME_DIR}");`,
+    done: `HostProcess.HomeDirectory, "${HOME_DIR}");`,
+  },
+  {
+    why: "the bundled CLI's browser setup uses the same data directory",
+    file: "apps/server/src/cli/browser.ts",
+    find: 'return home ? path.join(home, ".t3") :',
+    replace: `return home ? path.join(home, "${HOME_DIR}") :`,
+    done: `path.join(home, "${HOME_DIR}") :`,
+  },
+  {
+    why: "the browser profile is not shared with T3 Code's desktop app",
+    file: "apps/desktop/src/app/DesktopUserData.ts",
+    find: ': { current: "t3code-v2", legacy:',
+    replace: `: { current: "${PROFILE_DIR}", legacy:`,
+    done: `: { current: "${PROFILE_DIR}", legacy:`,
+  },
+  {
+    why: "the keychain entry for encrypted storage is named after this app, not T3 Code's",
+    file: BUILD,
+    find: '    name: "t3code",\n    version: appVersion,',
+    replace: '    name: "claude-code-app",\n    version: appVersion,',
+    done: '    name: "claude-code-app",\n    version: appVersion,',
   },
   {
     why: "the app is named Claude Code, without a stage suffix",

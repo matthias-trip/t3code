@@ -12,10 +12,11 @@ This branch is [T3 Code](https://github.com/pingdotgg/t3code) with its user-faci
 
 ## What is not
 
-Internal names stay as upstream has them: package names, environment variables (`T3CODE_*`), the `t3` command, the `~/.t3` data directory, MCP server and tool names, and text written for agents. Two consequences:
+Internal names stay as upstream has them: package names, environment variables (`T3CODE_*`), the `t3` command, MCP server and tool names, and text written for agents. The `t3code://` URL scheme and the `t3.codes` hosts are also unchanged, because T3 Connect's sign-in only accepts that origin.
 
-- The app shares `~/.t3` with a T3 Code install on the same Mac, so your projects and threads carry over. Do not run both against it at once.
-- The `t3code://` URL scheme and the `t3.codes` hosts are unchanged, because T3 Connect's sign-in only accepts that origin.
+## Data
+
+The app keeps its data in `~/.claude-code-app`, its browser profile in `~/Library/Application Support/claude-code-app`, and its storage key in the keychain as "claude-code-app Safe Storage". These are separate from T3 Code's (`~/.t3`), so both can be installed and running on one Mac. A T3 Code server that owns a data directory refuses a second server on it, which is why the two do not share one. To bring projects and threads over, quit both and copy `~/.t3/userdata` to `~/.claude-code-app/userdata`.
 
 ## Differences in behaviour
 
