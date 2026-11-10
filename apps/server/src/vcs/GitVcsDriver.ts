@@ -357,7 +357,7 @@ export class GitVcsDriver extends Context.Service<
       key: string,
     ) => Effect.Effect<string | null, GitCommandError>;
     /**
-     * The branch, named as on the host, that Claude Code recorded `branch` was cut from. Null when none
+     * The branch, named as on the host, that T3 recorded `branch` was cut from. Null when none
      * was recorded.
      */
     readonly readBranchBase: (

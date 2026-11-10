@@ -37,7 +37,7 @@ const MAX_WAIT_TIMEOUT_MS = 60 * 60 * 1_000;
 type Scope = McpInvocationContext.McpInvocationScope;
 
 /**
- * Runs Claude Code MCP tools in a linked environment for an agent here. The tool's own
+ * Runs T3 MCP tools in a linked environment for an agent here. The tool's own
  * declaration checks the agent here first; the linked environment then holds
  * the call to the link's access, narrowed to the agent's modes, which every
  * forwarded call carries.

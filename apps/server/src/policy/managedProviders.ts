@@ -54,7 +54,7 @@ const PACKAGED_CLIENTS: ReadonlyArray<ProviderClientDefinition> = [
 ];
 
 /**
- * Fields that make an instance launch without the settings a pin sets: managed Codex runs Claude Code's own
+ * Fields that make an instance launch without the settings a pin sets: managed Codex runs T3's own
  * runtime against OpenAI, and a server URL points OpenCode at a server it does not start. A policy
  * that owns a pin owns these too, holding each at the value given here, which clients still send
  * when they add an instance.
