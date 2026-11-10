@@ -68,8 +68,11 @@ app="$check/Claude Code.app"
 codesign --verify --deep --strict "$app"
 signature="$(codesign -dvv "$app" 2>&1)"
 grep -q "^Authority=$signer" <<<"$signature" || { log "App is not signed by $signer"; exit 1; }
-toolchain node scripts/smoke-desktop-app.ts \
+# Its own profile, so the check also passes while the installed app is open.
+check_profile="claude-code-app-launch-check"
+FORK_PROFILE_DIR="$check_profile" toolchain node scripts/smoke-desktop-app.ts \
   --executable "$app/Contents/MacOS/Claude Code" --artifacts-dir "$LOGS/launch-check"
+rm -rf "$HOME/Library/Application Support/$check_profile"
 log "Signature and launch check passed"
 
 # Files first, manifest last: the page and the updater only ever see a

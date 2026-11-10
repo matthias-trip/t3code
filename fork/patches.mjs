@@ -77,8 +77,10 @@ export const PATCHES = [
     why: "the browser profile is not shared with T3 Code's desktop app",
     file: "apps/desktop/src/app/DesktopUserData.ts",
     find: ': { current: "t3code-v2", legacy:',
-    replace: `: { current: "${PROFILE_DIR}", legacy:`,
-    done: `: { current: "${PROFILE_DIR}", legacy:`,
+    // The override lets the launch check run while the installed app is open;
+    // one profile admits one running instance.
+    replace: `: { current: process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}", legacy:`,
+    done: `process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}"`,
   },
   {
     why: "the keychain entry for encrypted storage is named after this app, not T3 Code's",
