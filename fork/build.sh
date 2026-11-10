@@ -58,7 +58,8 @@ trap 'rm -rf "$check"' EXIT
 ditto -x -k "$zip" "$check"
 app="$check/Claude Code.app"
 codesign --verify --deep --strict "$app"
-codesign -dvv "$app" 2>&1 | grep -q "^Authority=$signer" || { log "App is not signed by $signer"; exit 1; }
+signature="$(codesign -dvv "$app" 2>&1)"
+grep -q "^Authority=$signer" <<<"$signature" || { log "App is not signed by $signer"; exit 1; }
 toolchain node scripts/smoke-desktop-app.ts \
   --executable "$app/Contents/MacOS/Claude Code" --artifacts-dir "$LOGS/launch-check"
 log "Signature and launch check passed"

@@ -7,15 +7,20 @@
 # upstream changes never conflict with it; only hand edits made on claude-code
 # can conflict, and then the sync stops and leaves everything as it was.
 #
-# Usage: sync.sh [--force-build] [tag]
+# Usage: sync.sh [--force-build | --no-build] [tag]
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 cd "$REPO"
 
 force_build=false
+build=true
 tag=""
 for arg in "$@"; do
-  if [[ "$arg" == "--force-build" ]]; then force_build=true; else tag="$arg"; fi
+  case "$arg" in
+    --force-build) force_build=true ;;
+    --no-build) build=false ;;
+    *) tag="$arg" ;;
+  esac
 done
 
 fail() {
@@ -55,12 +60,19 @@ else
   node "$work/fork/rebrand.mjs" "$work/tree" "${tag#v}" || fail "rebrand no longer applies to $tag"
   git -C "$work/tree" add -A
   tree="$(git -C "$work/tree" write-tree)"
-  parents=(-p "$tag^{commit}")
-  if git rev-parse --quiet --verify "refs/heads/$VENDOR_BRANCH" >/dev/null; then
-    parents=(-p "$VENDOR_BRANCH" "${parents[@]}")
+  # A retry after a failed merge finds the same tree already on the vendor
+  # branch and must not stack a second commit on it.
+  if [[ "$(git rev-parse --quiet --verify "$VENDOR_BRANCH^{tree}" || true)" != "$tree" ]]; then
+    parents=()
+    if git rev-parse --quiet --verify "refs/heads/$VENDOR_BRANCH" >/dev/null; then
+      parents+=(-p "$VENDOR_BRANCH")
+      git merge-base --is-ancestor "$tag^{commit}" "$VENDOR_BRANCH" || parents+=(-p "$tag^{commit}")
+    else
+      parents+=(-p "$tag^{commit}")
+    fi
+    vendor="$(git commit-tree "$tree" "${parents[@]}" -m "Rebrand upstream $tag as Claude Code")"
+    git update-ref "refs/heads/$VENDOR_BRANCH" "$vendor"
   fi
-  vendor="$(git commit-tree "$tree" "${parents[@]}" -m "Rebrand upstream $tag as Claude Code")"
-  git update-ref "refs/heads/$VENDOR_BRANCH" "$vendor"
   cleanup
   trap - EXIT
 
@@ -71,6 +83,8 @@ else
   merged=true
   git push --quiet origin "$BRANCH" "$VENDOR_BRANCH" || log "Push failed; continuing with the local merge"
 fi
+
+[[ "$build" == true ]] || exit 0
 
 published="$(jq -r '.tag // empty' "$DOWNLOADS/build.json" 2>/dev/null || true)"
 published_commit="$(jq -r '.commit // empty' "$DOWNLOADS/build.json" 2>/dev/null || true)"
