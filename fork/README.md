@@ -7,12 +7,13 @@ This branch is [T3 Code](https://github.com/pingdotgg/t3code) with its user-faci
 - The app name, window title, About panel, menu and UI text: "T3 Code" becomes "Claude Code", "T3 Connect" becomes "Claude Code Connect".
 - The bundle ID: `com.mytek.claudecode`.
 - The installer file names: `Claude-Code-<version>-arm64.dmg` and `.zip`.
+- The desktop app's terminal command: `claude-code-app` instead of `t3`, so it does not collide with a T3 Code install. `CLI.name` in `patches.mjs` sets it.
 - The app icon and favicons, generated from `assets/icon-source.png` by `assets/make-icons.mjs`.
 - The T3 glyph in the sidebar and tool icons, which becomes text and a "CC" monogram.
 
 ## What is not
 
-Internal names stay as upstream has them: package names, environment variables (`T3CODE_*`), the `t3` command, MCP server and tool names, and text written for agents. The `t3code://` URL scheme and the `t3.codes` hosts are also unchanged, because T3 Connect's sign-in only accepts that origin.
+Internal names stay as upstream has them: package names, environment variables (`T3CODE_*`), MCP server and tool names, and text written for agents. The `t3code://` URL scheme and the `t3.codes` hosts are also unchanged, because T3 Connect's sign-in only accepts that origin.
 
 ## Data
 

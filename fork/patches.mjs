@@ -166,6 +166,23 @@ export const PATCHES = [
   },
 ];
 
+// The desktop app's terminal command. Upstream calls it `t3`, which would
+// collide with a T3 Code install on the same Mac. Not `claude`: that is the
+// real Claude Code CLI, which this app starts as a provider.
+export const CLI = {
+  name: "claude-code-app",
+  // The launcher the app writes and links, and the screens that name it.
+  // Instructions for installing T3 Code's own CLI on another computer keep `t3`.
+  files: [
+    "apps/desktop/src/app/DesktopCliCommand.ts",
+    "apps/desktop/src/app/DesktopCliShim.ts",
+    "apps/web/src/components/settings/CliCommandSettingsRow.tsx",
+    "apps/web/src/components/settings/settingsSearch.ts",
+    "apps/web/src/components/onboarding/WelcomePage.tsx",
+    "apps/web/src/state/desktopCliCommand.ts",
+  ],
+};
+
 // Icon files replaced outright: upstream path, then the file in fork/assets
 // that takes its place. Regenerate those with fork/assets/make-icons.mjs.
 export const ASSETS = {

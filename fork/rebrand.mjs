@@ -96,7 +96,29 @@ for (const file of git("ls-files", "-z").split("\0")) {
 // Edits no text rule can express. Each must still find its anchor: a miss
 // means upstream moved the code, and the sync has to stop rather than ship a
 // build that silently lost the change.
-const { ASSETS, PATCHES, REMOVE } = await import("./patches.mjs");
+const { ASSETS, CLI, PATCHES, REMOVE } = await import("./patches.mjs");
+
+// The command name appears as a quoted file name, in backticks, as the text
+// of a <code> element, and in "t3 command" and "t3 launcher".
+for (const file of CLI.files) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) {
+    failures.push(`${file}: file is missing (command name)`);
+    continue;
+  }
+  const before = fs.readFileSync(absolute, "utf8");
+  const after = before
+    .replace(/"t3(\.cmd|\.exe)?"/g, `"${CLI.name}$1"`)
+    .replace(/`t3`/g, `\`${CLI.name}\``)
+    .replace(/>t3</g, `>${CLI.name}<`)
+    .replace(/\bt3 (command|launcher)\b/g, `${CLI.name} $1`)
+    .replace(/\banother t3\b/g, `another ${CLI.name}`)
+    .replace(/bundled t3 CLI/g, `bundled ${CLI.name} CLI`);
+  if (after === before && !before.includes(CLI.name)) {
+    failures.push(`${file}: no command name found (command name)`);
+  }
+  fs.writeFileSync(absolute, after);
+}
 for (const patch of PATCHES) {
   const absolute = path.join(root, patch.file);
   if (!fs.existsSync(absolute)) {
