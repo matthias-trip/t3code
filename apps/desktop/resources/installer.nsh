@@ -17,7 +17,7 @@
     Pop $1
     System::Call 'kernel32::SetEnvironmentVariable(t "T3CODE_INSTALL_DIR", p 0)'
     ${If} $0 == 0
-      ${If} $1 == "T3 Code (Alpha)"
+      ${If} $1 == "Claude Code (Alpha)"
       ${OrIf} $1 == "Claude Code (Beta)"
       ${OrIf} $1 == "Claude Code (Nightly)"
         ${T3StrRep} $appRunningMessage $appRunningMessage "${PRODUCT_NAME}" $1
