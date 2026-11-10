@@ -80,7 +80,7 @@ export function parseManagedEndpointLocalOrigin(localOrigin: string) {
 }
 
 /**
- * Whether clients should offer to turn on T3 Connect over this session: only the desktop app's
+ * Whether clients should offer to turn on Claude Code Connect over this session: only the desktop app's
  * own bootstrap session, from any address (WSL answers on a distro IP), never through a proxy.
  * A loopback address alone does not count, since SSH port forwards look like loopback too.
  */

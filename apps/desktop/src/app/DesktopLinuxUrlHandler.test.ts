@@ -37,7 +37,7 @@ const makeEnvironment = (path: Path.Path, overrides: Record<string, unknown> = {
     linuxDesktopEntryName: "com.t3tools.T3Code.desktop",
     linuxApplicationsDir: "/home/alice/.local/share/applications",
     desktopLauncherPath: Option.none(),
-    appImagePath: Option.some("/home/alice/Applications/T3-Code.AppImage"),
+    appImagePath: Option.some("/home/alice/Applications/Claude-Code.AppImage"),
     path,
     ...overrides,
   } as unknown as DesktopEnvironment.DesktopEnvironment["Service"]);
@@ -167,14 +167,14 @@ const emptyRecording = (): RecordedRegistration => ({
 describe("DesktopLinuxUrlHandler", () => {
   it("renders a scheme-handler desktop entry with freedesktop Exec quoting", () => {
     const entry = DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
-      displayName: "T3 Code (Nightly)",
+      displayName: "Claude Code (Nightly)",
       execTarget: '/home/al ice/Apps/T3 "100%" $HOME\\x.AppImage',
       scheme: "t3code",
       iconPath: "/home/al ice/icons/T3\\x.png",
     });
 
     assert.include(entry, "[Desktop Entry]");
-    assert.include(entry, "Name=T3 Code (Nightly)");
+    assert.include(entry, "Name=Claude Code (Nightly)");
     assert.include(
       entry,
       'Exec="/home/al ice/Apps/T3 \\\\"100%%\\\\" \\\\$HOME\\\\\\\\x.AppImage" %U',
@@ -201,7 +201,7 @@ describe("DesktopLinuxUrlHandler", () => {
         );
         assert.include(
           recorded.files[0]?.content,
-          "Exec=/home/alice/Applications/T3-Code.AppImage %U",
+          "Exec=/home/alice/Applications/Claude-Code.AppImage %U",
         );
         assert.include(recorded.files[0]?.content, "MimeType=x-scheme-handler/t3code;");
         assert.deepEqual(recorded.commands, [
@@ -241,10 +241,10 @@ describe("DesktopLinuxUrlHandler", () => {
 
     return Effect.gen(function* () {
       yield* runRegister(recorded, {
-        environment: { desktopLauncherPath: Option.some("/opt/T3 Code/t3code") },
+        environment: { desktopLauncherPath: Option.some("/opt/Claude Code/t3code") },
       });
 
-      assert.include(recorded.files[0]?.content, 'Exec="/opt/T3 Code/t3code" %U');
+      assert.include(recorded.files[0]?.content, 'Exec="/opt/Claude Code/t3code" %U');
     });
   });
 
@@ -255,7 +255,7 @@ describe("DesktopLinuxUrlHandler", () => {
       yield* runRegister(recorded, {
         existingEntry: DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
           displayName: "T3 Code (Alpha)",
-          execTarget: "/home/alice/Applications/T3-Code.AppImage",
+          execTarget: "/home/alice/Applications/Claude-Code.AppImage",
           scheme: "t3code",
           iconPath: "/home/alice/.local/share/icons/com.t3tools.T3Code.desktop.png",
         }),
@@ -284,7 +284,7 @@ describe("DesktopLinuxUrlHandler", () => {
         iconSource: "/tmp/.mount_T3/resources/icon.png",
         existingEntry: DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
           displayName: "T3 Code (Alpha)",
-          execTarget: "/home/alice/Applications/T3-Code.AppImage",
+          execTarget: "/home/alice/Applications/Claude-Code.AppImage",
           scheme: "t3code",
           iconPath,
         }),

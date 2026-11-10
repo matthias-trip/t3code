@@ -12,7 +12,7 @@ import { resolveRelayClientTracingConfig } from "./publicConfig.ts";
 
 const relayClientTracingConfig = resolveRelayClientTracingConfig();
 
-/** Relay traces leave the machine for T3 Connect, so a policy with `telemetry: false` stops them. */
+/** Relay traces leave the machine for Claude Code Connect, so a policy with `telemetry: false` stops them. */
 export const relayLayer = (
   resource: Omit<RelayTracing.RelayClientTracingResource, "serviceInstanceId">,
   tracingConfig = relayClientTracingConfig,

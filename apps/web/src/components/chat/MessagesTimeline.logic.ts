@@ -191,7 +191,7 @@ export function threadReadTargetId(entry: Pick<WorkLogEntry, "structuredPayload"
   return typeof threadId === "string" && threadId.trim().length > 0 ? threadId.trim() : null;
 }
 
-const THREAD_READ_OBJECT = " a T3 thread";
+const THREAD_READ_OBJECT = " a Claude Code thread";
 
 export function threadReadTargetTitle(
   shell: Pick<ThreadShell, "title" | "archivedAt" | "deletedAt"> | null,
@@ -581,7 +581,7 @@ type MessagesTimelineRowContent =
       label: string;
       tokenCounts: ReturnType<typeof contextCompactionTokenCounts>;
       active: boolean;
-      /** Replaces "Context compacted" when T3 Code compacted without being asked. */
+      /** Replaces "Context compacted" when Claude Code compacted without being asked. */
       title?: string;
       failed?: true;
       /** The provider's reason, when a failed compaction gave one. */

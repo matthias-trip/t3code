@@ -94,7 +94,7 @@ function EmptyMobileClients() {
       <EmptyHeader>
         <EmptyTitle>No mobile clients</EmptyTitle>
         <EmptyDescription>
-          Install T3 Code on your phone and sign in to T3 Connect to get push notifications and Live
+          Install Claude Code on your phone and sign in to Claude Code Connect to get push notifications and Live
           Activities.
         </EmptyDescription>
       </EmptyHeader>

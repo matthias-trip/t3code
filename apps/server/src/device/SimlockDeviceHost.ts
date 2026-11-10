@@ -137,7 +137,7 @@ export const resolveSimlockToken = Effect.fn("SimlockDeviceHost.resolveToken")(f
 export const describeGatewayFailure = (cause: unknown, gatewayUrl: string, tokenOwner: string) => {
   if (Cause.isTimeoutError(cause)) return `Could not reach the Simlock gateway at ${gatewayUrl}.`;
   if (!HttpClientError.isHttpClientError(cause))
-    return `The Simlock gateway at ${gatewayUrl} sent an answer T3 could not read.`;
+    return `The Simlock gateway at ${gatewayUrl} sent an answer Claude Code could not read.`;
   if (cause.reason._tag === "StatusCodeError") {
     const status = cause.reason.response.status;
     return status === 401 || status === 403
@@ -146,7 +146,7 @@ export const describeGatewayFailure = (cause: unknown, gatewayUrl: string, token
   }
   return cause.reason._tag === "TransportError"
     ? `Could not reach the Simlock gateway at ${gatewayUrl}.`
-    : `The Simlock gateway at ${gatewayUrl} sent an answer T3 could not read.`;
+    : `The Simlock gateway at ${gatewayUrl} sent an answer Claude Code could not read.`;
 };
 
 const decodeIdentity = Schema.decodeUnknownEffect(
@@ -174,7 +174,7 @@ export const simlockIdentity = Effect.fn("SimlockDeviceHost.identity")(function*
     );
 });
 
-/** T3's own agent-device CLI, installed on first use. */
+/** Claude Code's own agent-device CLI, installed on first use. */
 export type AgentDeviceCli = Effect.Effect<
   { readonly nodePath: string; readonly entryPath: string },
   DeviceHost.DeviceHostError | NodeRuntimeUnavailableError
@@ -266,7 +266,7 @@ export const make = Effect.fn("SimlockDeviceHost.make")(function* (
     ),
   );
 
-  /** Runs T3's own agent-device CLI against the lease's session; its failure message is the reason. */
+  /** Runs Claude Code's own agent-device CLI against the lease's session; its failure message is the reason. */
   const agentDevice = Effect.fn("SimlockDeviceHost.agentDevice")(function* (
     lease: Pick<Lease, "session" | "configPath">,
     args: ReadonlyArray<string>,

@@ -1482,7 +1482,7 @@ describe("UsageService", () => {
     }).pipe(Effect.scoped, Effect.provide(TestClock.layer())),
   );
 
-  it.live("reads the Cursor account of an API key or T3 sign-in instead of a CLI login", () =>
+  it.live("reads the Cursor account of an API key or Claude Code sign-in instead of a CLI login", () =>
     Effect.gen(function* () {
       const { settings, home } = yield* setup;
       const signIn = new TextEncoder().encode(

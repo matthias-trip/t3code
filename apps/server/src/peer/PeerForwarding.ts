@@ -27,7 +27,7 @@ import * as PeerMcpClient from "./PeerMcpClient.ts";
 
 /**
  * A peer's `/mcp` holds a wait open for its whole timeout without sending
- * anything, and T3 Connect's edge drops a request idle for about 100 s, so a
+ * anything, and Claude Code Connect's edge drops a request idle for about 100 s, so a
  * forwarded wait goes out in pieces no longer than this.
  */
 export const FORWARDED_WAIT_CHUNK_MS = 50_000;
@@ -37,7 +37,7 @@ const MAX_WAIT_TIMEOUT_MS = 60 * 60 * 1_000;
 type Scope = McpInvocationContext.McpInvocationScope;
 
 /**
- * Runs T3 MCP tools in a linked environment for an agent here. The tool's own
+ * Runs Claude Code MCP tools in a linked environment for an agent here. The tool's own
  * declaration checks the agent here first; the linked environment then holds
  * the call to the link's access, narrowed to the agent's modes, which every
  * forwarded call carries.

@@ -74,7 +74,7 @@ const ownsLauncher = Effect.fn("cli.uninstall.owns_launcher")(function* (
     .realPath(versionsDir)
     .pipe(Effect.orElseSucceed(() => versionsDir));
   // The link's own text keeps a pruned (dangling) target; the real path sees through a
-  // symlinked T3 home.
+  // symlinked Claude Code home.
   const targets =
     platform === "win32"
       ? [
@@ -284,5 +284,5 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
     }
   }
   yield* Console.log("");
-  yield* Console.log("t3 is uninstalled. Thanks for trying T3 Code.");
+  yield* Console.log("t3 is uninstalled. Thanks for trying Claude Code.");
 });

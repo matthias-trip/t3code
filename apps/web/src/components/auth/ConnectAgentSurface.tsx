@@ -167,7 +167,7 @@ export function ConnectAgentSurface() {
   const { details } = loaded;
   const canApprove =
     pending === null && resolveApprovalDecision({ code: pairingCode, access, details }) !== null;
-  // A code from "Use T3 Code in another app" names its level, so the page does not ask again.
+  // A code from "Use Claude Code in another app" names its level, so the page does not ask again.
   const codeAccess = parseMcpApprovalCode(pairingCode)?.access;
 
   return (
@@ -223,7 +223,7 @@ export function ConnectAgentSurface() {
             value={pairingCode}
           />
           <p className="text-xs text-muted-foreground">
-            Get one from Use T3 Code in another app (MCP), Settings → Sharing & access, or{" "}
+            Get one from Use Claude Code in another app (MCP), Settings → Sharing & access, or{" "}
             <code>t3 auth pairing create</code> on this machine.
           </p>
         </div>

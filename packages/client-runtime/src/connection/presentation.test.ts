@@ -50,7 +50,7 @@ function supervisorState(overrides: Partial<SupervisorConnectionState>): Supervi
 }
 
 describe("connection presentation", () => {
-  it("copies the T3 Connect MCP address first, then the route this device is connected over", () => {
+  it("copies the Claude Code Connect MCP address first, then the route this device is connected over", () => {
     const route = (connectionId: string, httpBaseUrl: string): ConnectionRoute => {
       const target = new BearerConnectionTarget({ ...TARGET, connectionId });
       return {

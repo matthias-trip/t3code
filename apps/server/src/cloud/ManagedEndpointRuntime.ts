@@ -212,7 +212,7 @@ export const make = Effect.gen(function* () {
   const relayClient = yield* RelayClient.RelayClient;
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const httpClient = HttpClient.withScope(yield* HttpClient.HttpClient);
-  // Without T3 Connect no connector ever runs, whoever asks for one.
+  // Without Claude Code Connect no connector ever runs, whoever asks for one.
   const connectAllowed = ManagedLimits.allowsConnect(yield* ManagedPolicy.ManagedPolicy);
   const activeRef = yield* Ref.make<ActiveConnector | null>(null);
   const desiredConfigRef = yield* Ref.make<RelayManagedEndpointRuntimeConfig | null>(null);

@@ -62,7 +62,7 @@ export function getComposerPromptInjectionState(prompt: string): ComposerPromptI
   return isClaudeUltrathinkPrompt(prompt) ? "ultrathink" : "none";
 }
 
-/** Cursor ACP can default Fast to true; T3 requires a user selection. */
+/** Cursor ACP can default Fast to true; Claude Code requires a user selection. */
 export function withImplicitFastModeDefault(
   caps: ModelCapabilities,
   modelOptions: ReadonlyArray<ProviderOptionSelection> | null | undefined,

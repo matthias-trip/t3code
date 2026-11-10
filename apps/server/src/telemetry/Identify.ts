@@ -176,7 +176,7 @@ const readIdentityFile = (
 
 /**
  * The OpenAI account id in a ChatGPT id_token, read without verifying it:
- * analytics needs only a stable id. Codex CLI and T3's own sign-in both use it.
+ * analytics needs only a stable id. Codex CLI and Claude Code's own sign-in both use it.
  */
 export const openAiUserId = (idToken: string) => {
   const payload = Base64Url.decodeString(idToken.split(".")[1] ?? "");
@@ -300,7 +300,7 @@ export const getTelemetryIdentity = Effect.flatMap(
 );
 
 /**
- * Owners the server can read without a client: the linked T3 Connect account
+ * Owners the server can read without a client: the linked Claude Code Connect account
  * and the provider logins under `homeDirectory`. Clients add `connect` and
  * `device` owners when they connect.
  */
@@ -311,7 +311,7 @@ export const getServerOwnersForHome = Effect.fn("getServerOwnersForHome")(functi
   const connectUser = yield* secrets.get(CLOUD_LINKED_USER_ID).pipe(
     Effect.map(Option.map((bytes) => new TextDecoder().decode(bytes))),
     Effect.catch((cause) =>
-      Effect.logWarning("Failed to read the linked T3 Connect account for telemetry", {
+      Effect.logWarning("Failed to read the linked Claude Code Connect account for telemetry", {
         errorTag: cause._tag,
       }).pipe(Effect.as(Option.none<string>())),
     ),

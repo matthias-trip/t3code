@@ -114,7 +114,7 @@ describe("resolveWorkEntryToolPresentation", () => {
       id: "clone",
       createdAt: "2026-09-19T00:00:00.000Z",
       tone: "tool",
-      label: "T3-code.t3_project_clone",
+      label: "Claude Code-code.t3_project_clone",
       toolLifecycleStatus: "inProgress",
       itemType: "dynamic_tool",
       toolData: { output: { isError: true } },
@@ -125,7 +125,7 @@ describe("resolveWorkEntryToolPresentation", () => {
     expect(workEntryDisplayIndicatesToolFailure(entry)).toBe(true);
     const childFailure = {
       ...entry,
-      label: "T3-code.task_status",
+      label: "Claude Code-code.task_status",
       toolLifecycleStatus: "completed" as const,
       toolData: { output: { taskId: "child", status: "failed", summary: "command not found" } },
     };
@@ -135,7 +135,7 @@ describe("resolveWorkEntryToolPresentation", () => {
     "mcp__t3-code__preview_click",
     "mcp__t3_code__preview_click",
     "mcp__t3code__preview_click",
-    "T3-code.preview_click",
+    "Claude Code-code.preview_click",
     "t3-code · preview_click completed",
     "t3_code/preview_click",
     "preview_click",
@@ -157,7 +157,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   });
 
   it("uses the summary's state only when the provider omitted a lifecycle status", () => {
-    const entry = { label: "T3-code.preview_click" };
+    const entry = { label: "Claude Code-code.preview_click" };
     expect(resolveWorkEntryToolPresentation(entry, "inProgress")?.displayName).toBe(
       "Clicking in the preview browser",
     );
@@ -180,7 +180,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   ])("names a linked change request with its host's term (%s)", (url, target) => {
     expect(
       resolveWorkEntryToolPresentation({
-        label: "T3-code.link_pull_request",
+        label: "Claude Code-code.link_pull_request",
         toolLifecycleStatus: "completed",
         toolData: { arguments: { url } },
       })?.displayName,

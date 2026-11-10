@@ -95,7 +95,7 @@ export function connectionStatusTitle(connection: EnvironmentConnectionPresentat
 }
 
 /**
- * The T3 Connect address wins whenever it is known: it works for agents anywhere, while the
+ * The Claude Code Connect address wins whenever it is known: it works for agents anywhere, while the
  * connected route is often a LAN or loopback address. SSH routes ride a local forward that
  * disappears with the client, so they have no stable address.
  */

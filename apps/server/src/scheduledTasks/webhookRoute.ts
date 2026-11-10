@@ -90,7 +90,7 @@ export const layer = HttpApiBuilder.group(
       const relayDeliveryId = Option.isSome(relay) ? relay.value.deliveryId : undefined;
       const relayReceivedAt = Option.isSome(relay) ? relay.value.receivedAt : undefined;
 
-      // A relay delivery joins the relay's trace, and goes to the T3 Connect
+      // A relay delivery joins the relay's trace, and goes to the Claude Code Connect
       // tracer with it. Anyone else's traceparent is never trusted.
       const relayParent = Option.isSome(relay)
         ? HttpTraceContext.fromHeaders(request.headers)
