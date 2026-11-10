@@ -83,6 +83,14 @@ export const PATCHES = [
     done: `process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}"`,
   },
   {
+    why: "a launch check under a throwaway profile must not link its command into ~/.local/bin",
+    file: "apps/desktop/src/app/DesktopCliCommand.ts",
+    find: "if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;",
+    replace:
+      "if (process.env.FORK_PROFILE_DIR?.trim()) return;\n      if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;",
+    done: "if (process.env.FORK_PROFILE_DIR?.trim()) return;",
+  },
+  {
     why: "the keychain entry for encrypted storage is named after this app, not T3 Code's",
     file: BUILD,
     find: '    name: "t3code",\n    version: appVersion,',
