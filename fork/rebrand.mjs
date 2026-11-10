@@ -31,7 +31,10 @@ const NEVER = [/\/fixtures\//, /\.snap$/];
 
 function rulesFor(file) {
   if (NEVER.some((pattern) => pattern.test(file))) return null;
-  const screen = /^apps\/(?:web|desktop)\//.test(file);
+  const screen =
+    /^apps\/(?:web|desktop)\//.test(file) ||
+    // Link errors and tool-call labels shown in the timeline.
+    /^packages\/(?:shared|client-runtime)\/src\/(?:promptLinks|t3McpToolPresentation)\.ts$/.test(file);
   if (!screen && AGENT_FACING.some((pattern) => pattern.test(file))) return null;
   if (INTERFACE.some((pattern) => pattern.test(file))) return RULES;
   if (MESSAGES.some((pattern) => pattern.test(file))) return PRODUCT_RULES;

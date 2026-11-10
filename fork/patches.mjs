@@ -64,6 +64,14 @@ export const PATCHES = [
     done: 'displayName: stageLabel === "Beta" ? APP_BASE_NAME',
   },
   {
+    why: "menus say Claude Code, not Claude Code Beta",
+    file: "apps/desktop/src/app/DesktopAppIdentity.ts",
+    find: "`${environment.branding.baseName} ${environment.branding.stageLabel}`,",
+    replace:
+      'environment.branding.stageLabel === "Beta"\n        ? environment.branding.baseName\n        : `${environment.branding.baseName} ${environment.branding.stageLabel}`,',
+    done: 'environment.branding.stageLabel === "Beta"',
+  },
+  {
     why: "sign without the passkey provisioning profile only the official team has",
     file: BUILD,
     find: 'options.platform === "mac" && options.signed\n      ? yield* Effect.try({',
