@@ -96,7 +96,7 @@ for (const file of git("ls-files", "-z").split("\0")) {
 // Edits no text rule can express. Each must still find its anchor: a miss
 // means upstream moved the code, and the sync has to stop rather than ship a
 // build that silently lost the change.
-const { PATCHES, REMOVE } = await import("./patches.mjs");
+const { ASSETS, PATCHES, REMOVE } = await import("./patches.mjs");
 for (const patch of PATCHES) {
   const absolute = path.join(root, patch.file);
   if (!fs.existsSync(absolute)) {
@@ -118,6 +118,13 @@ for (const patch of PATCHES) {
       : before.replace(patch.find, patch.replace),
   );
   stats.patched += 1;
+}
+for (const [target, asset] of Object.entries(ASSETS)) {
+  if (!fs.existsSync(path.join(root, target))) {
+    failures.push(`${target}: file is missing (icon replacement)`);
+    continue;
+  }
+  fs.copyFileSync(path.join(import.meta.dirname, "assets", asset), path.join(root, target));
 }
 for (const entry of REMOVE) fs.rmSync(path.join(root, entry), { recursive: true, force: true });
 

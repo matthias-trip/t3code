@@ -119,11 +119,16 @@ function sendFile(request, response, name) {
     "content-type": TYPES[extension] ?? "application/octet-stream",
     "accept-ranges": "bytes",
     "x-robots-tag": "noindex",
-    // Versioned files never change; the manifests must always be fresh.
-    "cache-control": /^(?:latest-mac\.yml|build\.json)$/.test(name)
-      ? "no-store"
-      : "public, max-age=31536000, immutable",
+    // A rebuild of the same release reuses its file names, so nothing here
+    // may be cached without asking: the validator below keeps that cheap.
+    "cache-control": /^(?:latest-mac\.yml|build\.json)$/.test(name) ? "no-store" : "no-cache",
+    etag: `"${stat.size}-${Math.round(stat.mtimeMs)}"`,
+    "cdn-cache-control": "no-store",
   };
+  if (request.headers["if-none-match"] === headers.etag) {
+    response.writeHead(304, headers).end();
+    return;
+  }
   const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
   if (range && (range[1] || range[2])) {
     const start = range[1] ? Number(range[1]) : Math.max(0, stat.size - Number(range[2]));

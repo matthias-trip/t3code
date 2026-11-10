@@ -103,6 +103,13 @@ export const PATCHES = [
     done: 'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),',
   },
   {
+    why: "the installer window does not show the T3 mark",
+    file: "apps/desktop/resources/dmg/dmg-background-latest.svg",
+    find: /  <!-- Official mark[\s\S]*?<\/svg>\n/,
+    replace: "  <!-- Upstream's mark is left out of this fork's installer. -->\n",
+    done: "left out of this fork's installer",
+  },
+  {
     why: "the T3 logo glyph becomes a CC monogram",
     file: "apps/web/src/components/T3Wordmark.tsx",
     find: /^[\s\S]*export function T3Wordmark[\s\S]*$/,
@@ -117,6 +124,18 @@ export const PATCHES = [
     done: '<span className="shrink-0 font-semibold">Claude</span>',
   },
 ];
+
+// Icon files replaced outright: upstream path, then the file in fork/assets
+// that takes its place. Regenerate those with fork/assets/make-icons.mjs.
+export const ASSETS = {
+  "assets/prod/black-macos-1024.png": "macos-1024.png",
+  "assets/prod/t3-black-web-favicon.ico": "favicon.ico",
+  "assets/prod/t3-black-web-favicon-16x16.png": "web-16.png",
+  "assets/prod/t3-black-web-favicon-32x32.png": "web-32.png",
+  "assets/prod/t3-black-web-apple-touch-180.png": "web-180.png",
+  "assets/prod/t3-black-web-icon-192x192.png": "web-192.png",
+  "assets/prod/t3-black-web-icon-512x512.png": "web-512.png",
+};
 
 // Upstream CI and release automation must not run from this fork.
 export const REMOVE = [".github/workflows"];

@@ -7,7 +7,8 @@ This branch is [T3 Code](https://github.com/pingdotgg/t3code) with its user-faci
 - The app name, window title, About panel, menu and UI text: "T3 Code" becomes "Claude Code", "T3 Connect" becomes "Claude Code Connect".
 - The bundle ID: `com.mytek.claudecode`.
 - The installer file names: `Claude-Code-<version>-arm64.dmg` and `.zip`.
-- The T3 glyph in the sidebar and icons, which becomes text and a "CC" monogram.
+- The app icon and favicons, generated from `assets/icon-source.png` by `assets/make-icons.mjs`.
+- The T3 glyph in the sidebar and tool icons, which becomes text and a "CC" monogram.
 
 ## What is not
 
@@ -15,8 +16,6 @@ Internal names stay as upstream has them: package names, environment variables (
 
 - The app shares `~/.t3` with a T3 Code install on the same Mac, so your projects and threads carry over. Do not run both against it at once.
 - The `t3code://` URL scheme and the `t3.codes` hosts are unchanged, because T3 Connect's sign-in only accepts that origin.
-
-The app icon is upstream's.
 
 ## Differences in behaviour
 
@@ -33,6 +32,7 @@ The app icon is upstream's.
 | `patches.mjs` | Edits no text rule can express. Each has an anchor that must match. |
 | `sync.sh` | Daily job: merge the latest stable release, build, publish. |
 | `build.sh` | Build, sign, launch-check and publish the current checkout. |
+| `assets/` | The icon source, the generated icon files and their generator. |
 | `site/` | The download page served through the Cloudflare tunnel. |
 | `install-services.sh` | Installs the launchd agents for sync, page and tunnel. |
 
