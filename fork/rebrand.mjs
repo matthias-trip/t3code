@@ -44,7 +44,7 @@ const PROTECTED = [
   /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+[^\s"'`)]*/g,
   /T3[ -]?Chat/gi,
   // Profile directories of earlier upstream versions, read for migration.
-  /"T3 Code \((?:Alpha|Dev)\)"/g,
+  /(?:legacy: |PROFILE_NAMES = \[)"T3 Code \((?:Alpha|Dev)\)"/g,
 ];
 
 const RULES = [
