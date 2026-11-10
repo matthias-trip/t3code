@@ -24,7 +24,7 @@ import {
 
 const exec = NodeUtil.promisify(NodeChildProcess.execFile);
 
-/** A loopback port that accepts connections until the scope closes, like Claude Code's device connection. */
+/** A loopback port that accepts connections until the scope closes, like T3's device connection. */
 const listeningPort = Effect.acquireRelease(
   Effect.promise(
     () =>
@@ -275,7 +275,7 @@ exec '${process.execPath.replaceAll("'", "'\"'\"'")}' "$@"
     expect(agentDeviceCloseOutcome(result(null, "", true))).toBe("timed-out");
   });
 
-  it.live("stops before agent-device when Claude Code's device connection is down", () =>
+  it.live("stops before agent-device when T3's device connection is down", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -333,7 +333,7 @@ exec '${process.execPath.replaceAll("'", "'\"'\"'")}' "$@"
           "t3-a",
         ]);
       }
-      // cdp talks to Metro, not to Claude Code's connection, so it still runs.
+      // cdp talks to Metro, not to T3's connection, so it still runs.
       expect(
         JSON.parse((yield* Effect.promise(() => launch(["cdp", "target", "list"]))).stdout),
       ).toEqual(["cdp", "target", "list"]);

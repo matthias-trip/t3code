@@ -22,7 +22,7 @@ import {
   serviceStateHasPendingUpdate,
 } from "./serviceProtocol.ts";
 
-it("reads the served Claude Code home back out of a rendered unit or plist", () => {
+it("reads the served T3 home back out of a rendered unit or plist", () => {
   const plan = (baseDir: string) => ({
     program: [`${baseDir}/runtime/versions/1.2.3/t3`, "__service-launcher"],
     baseDir,
@@ -680,7 +680,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
     }),
   );
 
-  it.effect("restart and install leave a service that serves another Claude Code home alone", () =>
+  it.effect("restart and install leave a service that serves another T3 home alone", () =>
     Effect.gen(function* () {
       const { service, fs, baseDir, commands, makeService } = yield* makeHarness();
       const plan = yield* service.install();
@@ -706,7 +706,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       const { fs, commands, invocations, control, makeService } = yield* makeHarness();
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-handoff-" });
-      const baseDir = path.join(home, "Claude Code Data 100%", "${UNSET}", "$literal");
+      const baseDir = path.join(home, "T3 Data 100%", "${UNSET}", "$literal");
       const outside = yield* makeService(undefined, "1.2.3", baseDir);
       const plan = yield* outside.install();
       const statePath = path.join(baseDir, "runtime", "service-state.json");
@@ -735,7 +735,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         "service",
         "install",
         "--base-dir",
-        path.join(home, "Claude Code Data 100%", "$${UNSET}", "$$literal"),
+        path.join(home, "T3 Data 100%", "$${UNSET}", "$$literal"),
         "--allow-downgrade",
       ]);
 
