@@ -64,3 +64,14 @@ it("reaches New space from the keyboard and closes without a change on Escape", 
   expect(onNewSpace).toHaveBeenCalledOnce();
   expect(onSelectSpace).not.toHaveBeenCalled();
 });
+
+it("keeps an archived current space in the switcher, marked and checked", async () => {
+  const { screen } = await renderSwitcher(fixtureSpaceIds.archived);
+  await using _screen = screen;
+
+  await userEvent.click(screen.getByRole("button", { name: /Q3 cleanup/ }));
+  const archived = page.getByRole("menuitemradio", { name: /Q3 cleanup/ });
+  await expect.element(archived).toHaveAccessibleName("Q3 cleanup Archived");
+  await expect.element(archived).toHaveAttribute("aria-checked", "true");
+  expect(page.getByRole("menuitemradio").elements()).toHaveLength(4);
+});

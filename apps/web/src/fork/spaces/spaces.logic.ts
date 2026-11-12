@@ -1,6 +1,8 @@
 import type { ProjectId, ThreadId } from "@t3tools/contracts";
 import type { Space, SpaceId } from "@t3tools/fork-spaces/contracts/space";
 
+import { SPACE_TITLE_MAX } from "./spaceHome.logic";
+
 /** Active spaces as the switcher lists them: pinned first, in pin order, then by title. */
 export function orderSwitcherSpaces(spaces: ReadonlyArray<Space>): ReadonlyArray<Space> {
   return spaces
@@ -50,11 +52,15 @@ export interface SpaceFromTagPlan {
   readonly threadIdsInOtherSpaces: ReadonlyArray<ThreadId>;
 }
 
+/** `null` when the tag can't name a space (blank once trimmed). */
 export function planSpaceFromTag(input: {
   readonly tag: string;
   readonly threads: ReadonlyArray<SpaceFromTagThread>;
   readonly threadSpaces: ReadonlyMap<ThreadId, SpaceId>;
-}): SpaceFromTagPlan {
+}): SpaceFromTagPlan | null {
+  // The same rules validateSpaceDraft applies, except a long tag is cut to fit.
+  const title = input.tag.trim().slice(0, SPACE_TITLE_MAX).trimEnd();
+  if (title.length === 0) return null;
   const tagged = input.threads.filter(
     (thread) => thread.archivedAt === null && (thread.tags ?? []).includes(input.tag),
   );
@@ -68,7 +74,7 @@ export function planSpaceFromTag(input: {
     .toSorted(([, a], [, b]) => b - a)
     .map(([projectId]) => projectId);
   return {
-    title: input.tag,
+    title,
     projectIds,
     threadIds: tagged.map((thread) => thread.id),
     threadIdsInOtherSpaces: tagged

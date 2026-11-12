@@ -8,7 +8,7 @@ import {
   PinOffIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import ChatMarkdown from "../../components/ChatMarkdown";
 import {
@@ -27,12 +27,13 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../../components/ui/menu
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { SidebarInset } from "../../components/ui/sidebar";
 import { Textarea } from "../../components/ui/textarea";
-import { Toggle, ToggleGroup } from "../../components/ui/toggle-group";
 import { WorkspacePageContainer } from "../../components/WorkspacePageContainer";
 import { WorkspacePageHeader } from "../../components/WorkspacePageHeader";
 import { isElectron } from "../../env";
+import { cn } from "../../lib/utils";
+import { BRIEF_REMARK_PLUGINS } from "./briefMarkdown";
 import { SpaceIcon } from "./SpaceIcon";
-import { type SpaceHomeTab, validateSpaceDraft, visibleSpaceHomeTabs } from "./spaceHome.logic";
+import { type SpaceHomeTab, spaceHomeLayout, validateSpaceDraft } from "./spaceHome.logic";
 
 /** One line in "Needs you" or "Sources": a title, a quiet detail, and at most one action. */
 export interface SpaceHomeRow {
@@ -62,15 +63,21 @@ export interface SpaceHomeProps {
 const OVERVIEW_TAB = "overview";
 
 export function SpaceHome(props: SpaceHomeProps) {
+  // Edit and tab state belong to one space in one state: a draft never carries over to another
+  // space, and archiving or unarchiving closes the form.
+  const stateKey = `${props.space.id}:${props.space.archivedAt === null ? "active" : "archived"}`;
+  return <SpaceHomeView key={stateKey} {...props} />;
+}
+
+function SpaceHomeView(props: SpaceHomeProps) {
   const { space } = props;
   const archived = space.archivedAt !== null;
   const [editing, setEditing] = useState(false);
-  const [selectedTab, setSelectedTab] = useState(OVERVIEW_TAB);
 
   const needsYou = props.needsYou ?? [];
   const sources = props.sources ?? [];
   const hasOverview = space.brief.trim().length > 0 || needsYou.length > 0 || sources.length > 0;
-  const tabs = visibleSpaceHomeTabs<ReactNode>([
+  const layout = spaceHomeLayout<ReactNode>([
     {
       value: OVERVIEW_TAB,
       label: "Overview",
@@ -80,7 +87,6 @@ export function SpaceHome(props: SpaceHomeProps) {
     },
     ...(props.extraTabs ?? []),
   ]);
-  const activeTab = tabs.find((tab) => tab.value === selectedTab) ?? tabs[0];
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
@@ -88,7 +94,6 @@ export function SpaceHome(props: SpaceHomeProps) {
         <WorkspacePageHeader electron={isElectron} className="border-b border-border">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <SpaceIcon space={space} />
-            <span className="min-w-0 truncate text-sm font-medium">{space.title}</span>
           </div>
           <SpaceHomeActions
             space={space}
@@ -121,34 +126,91 @@ export function SpaceHome(props: SpaceHomeProps) {
                   ) : null}
                   {archived ? <p className="text-sm text-muted-foreground">Archived</p> : null}
                 </div>
-                {tabs.length > 0 ? (
-                  <ToggleGroup
-                    aria-label="Space sections"
-                    variant="segmented"
-                    value={activeTab ? [activeTab.value] : []}
-                    onValueChange={(value) => {
-                      const next = value[0];
-                      if (typeof next === "string") setSelectedTab(next);
-                    }}
-                  >
-                    {tabs.map((tab) => (
-                      <Toggle key={tab.value} value={tab.value}>
-                        {tab.label}
-                      </Toggle>
-                    ))}
-                  </ToggleGroup>
+                {layout._tag === "tabs" ? (
+                  <SpaceHomeTabs tabs={layout.tabs} />
+                ) : layout._tag === "single" ? (
+                  layout.content
                 ) : null}
-                {tabs.length > 0
-                  ? activeTab?.content
-                  : hasOverview && (
-                      <SpaceOverview brief={space.brief} needsYou={needsYou} sources={sources} />
-                    )}
               </>
             )}
           </WorkspacePageContainer>
         </ScrollArea>
       </div>
     </SidebarInset>
+  );
+}
+
+const TAB_KEYS: Record<string, (index: number, count: number) => number> = {
+  ArrowRight: (index, count) => (index + 1) % count,
+  ArrowLeft: (index, count) => (index - 1 + count) % count,
+  Home: () => 0,
+  End: (_index, count) => count - 1,
+};
+
+/** Tabs with automatic activation: arrow keys, Home and End move focus and selection. */
+function SpaceHomeTabs(props: { readonly tabs: ReadonlyArray<SpaceHomeTab<ReactNode>> }) {
+  const baseId = useId();
+  const [selectedValue, setSelectedValue] = useState(OVERVIEW_TAB);
+  const selectedIndex = Math.max(
+    0,
+    props.tabs.findIndex((tab) => tab.value === selectedValue),
+  );
+  const selected = props.tabs[selectedIndex];
+  const tabId = (index: number) => `${baseId}-tab-${index}`;
+  const panelId = (index: number) => `${baseId}-panel-${index}`;
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const move = TAB_KEYS[event.key];
+    if (!move) return;
+    event.preventDefault();
+    const next = move(selectedIndex, props.tabs.length);
+    const tab = props.tabs[next];
+    if (!tab) return;
+    setSelectedValue(tab.value);
+    document.getElementById(tabId(next))?.focus();
+  };
+
+  return (
+    <>
+      <div
+        role="tablist"
+        aria-label="Space sections"
+        className="flex w-fit items-center gap-0.5 rounded-lg bg-muted p-0.5"
+        onKeyDown={onKeyDown}
+      >
+        {props.tabs.map((tab, index) => {
+          const active = index === selectedIndex;
+          return (
+            <button
+              key={tab.value}
+              id={tabId(index)}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={panelId(index)}
+              tabIndex={active ? 0 : -1}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-sm font-medium text-muted-foreground outline-none",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                active && "bg-background text-foreground shadow-xs",
+              )}
+              onClick={() => setSelectedValue(tab.value)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        role="tabpanel"
+        id={panelId(selectedIndex)}
+        aria-labelledby={tabId(selectedIndex)}
+        tabIndex={0}
+        className="outline-none"
+      >
+        {selected?.content}
+      </div>
+    </>
   );
 }
 
@@ -159,7 +221,14 @@ function SpaceOverview(props: {
 }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      {props.brief.trim().length > 0 ? <ChatMarkdown text={props.brief} cwd={undefined} /> : null}
+      {props.brief.trim().length > 0 ? (
+        <ChatMarkdown
+          text={props.brief}
+          cwd={undefined}
+          parseRawHtml={false}
+          extraRemarkPlugins={BRIEF_REMARK_PLUGINS}
+        />
+      ) : null}
       <SpaceHomeSection label="Needs you" rows={props.needsYou} />
       <SpaceHomeSection label="Sources" rows={props.sources} />
     </div>
@@ -282,6 +351,7 @@ function SpaceEditForm(props: {
   const [title, setTitle] = useState(props.space.title);
   const [brief, setBrief] = useState(props.space.brief);
   const [error, setError] = useState<{ field: "title" | "brief"; message: string } | null>(null);
+  const errorId = useId();
 
   return (
     <form
@@ -296,7 +366,11 @@ function SpaceEditForm(props: {
         props.onSave(result.changes);
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") props.onCancel();
+        // An IME composition, or a control inside that already handled Escape, keeps the form.
+        if (event.key !== "Escape" || event.nativeEvent.isComposing || event.defaultPrevented) {
+          return;
+        }
+        props.onCancel();
       }}
     >
       <div className="flex flex-col gap-2">
@@ -306,6 +380,7 @@ function SpaceEditForm(props: {
           value={title}
           autoFocus
           aria-invalid={error?.field === "title" || undefined}
+          aria-describedby={error?.field === "title" ? errorId : undefined}
           onChange={(event) => {
             setTitle(event.currentTarget.value);
             setError(null);
@@ -320,6 +395,7 @@ function SpaceEditForm(props: {
           rows={6}
           placeholder="What this work is about. Agents in this space read it too."
           aria-invalid={error?.field === "brief" || undefined}
+          aria-describedby={error?.field === "brief" ? errorId : undefined}
           onChange={(event) => {
             setBrief(event.currentTarget.value);
             setError(null);
@@ -327,7 +403,7 @@ function SpaceEditForm(props: {
         />
       </div>
       {error ? (
-        <p role="alert" className="text-sm text-destructive-foreground">
+        <p id={errorId} role="alert" className="text-sm text-destructive-foreground">
           {error.message}
         </p>
       ) : null}

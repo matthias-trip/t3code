@@ -112,6 +112,15 @@ describe("planSpaceFromTag", () => {
     });
   });
 
+  it("names the space from the trimmed tag, cut to the title limit, and refuses a blank one", () => {
+    const tagged = (tag: string) => [{ ...threads[0]!, tags: [tag] }];
+    const plan = (tag: string) =>
+      planSpaceFromTag({ tag, threads: tagged(tag), threadSpaces: new Map() });
+    expect(plan("  retry  ")?.title).toBe("retry");
+    expect(plan(`${"x".repeat(119)} tail`)?.title).toBe("x".repeat(119));
+    expect(plan("   ")).toBeNull();
+  });
+
   it("collects tags from unarchived threads once each", () => {
     expect(collectThreadTags(threads)).toEqual(["retry", "ui"]);
   });

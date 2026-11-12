@@ -90,7 +90,10 @@ export function resolveSpaceMenuAction(
 ): SpaceMenuAction | null {
   if (id === "fork-space:remove") return { type: "move", spaceId: null };
   if (id.startsWith(MOVE_PREFIX)) {
-    const space = spaces.find((candidate) => candidate.id === id.slice(MOVE_PREFIX.length));
+    // Only active spaces are targets, as the menu offered them.
+    const space = orderSwitcherSpaces(spaces).find(
+      (candidate) => candidate.id === id.slice(MOVE_PREFIX.length),
+    );
     return space ? { type: "move", spaceId: space.id } : null;
   }
   if (id.startsWith(FROM_TAG_PREFIX)) {

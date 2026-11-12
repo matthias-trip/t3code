@@ -39,7 +39,9 @@ export function ForkSidebarTop({
   onOpenInbox,
 }: ForkSidebarTopProps) {
   const current = resolveCurrentSpace(spaces, currentSpaceId);
-  const listed = orderSwitcherSpaces(spaces);
+  // An archived current space stays listed, marked, so the switcher still shows where you are.
+  const active = orderSwitcherSpaces(spaces);
+  const listed = current && current.archivedAt !== null ? [...active, current] : active;
   const currentTitle = current?.title ?? "All work";
 
   return (
@@ -76,6 +78,9 @@ export function ForkSidebarTop({
                   <span className="flex min-w-0 items-center gap-2">
                     <SpaceIcon space={space} />
                     <span className="min-w-0 truncate">{space.title}</span>
+                    {space.archivedAt === null ? null : (
+                      <span className="shrink-0 text-xs text-muted-foreground">Archived</span>
+                    )}
                   </span>
                 </MenuRadioItem>
               ))}
@@ -90,7 +95,11 @@ export function ForkSidebarTop({
       </SidebarMenuItem>
       {inboxCount === undefined ? null : (
         <SidebarMenuItem>
-          <SidebarMenuButton isActive={inboxActive} onClick={onOpenInbox}>
+          <SidebarMenuButton
+            isActive={inboxActive}
+            aria-label={inboxCount > 0 ? `Inbox, ${inboxCount} waiting` : undefined}
+            onClick={onOpenInbox}
+          >
             <InboxIcon />
             <span className="min-w-0 flex-1 truncate">Inbox</span>
             {inboxCount > 0 ? (

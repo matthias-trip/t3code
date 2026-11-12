@@ -69,8 +69,11 @@ describe("resolveSpaceMenuAction", () => {
     });
   });
 
-  it("ignores other menus' ids and spaces deleted while the menu was open", () => {
+  it("ignores other menus' ids and spaces deleted or archived while the menu was open", () => {
     expect(resolveSpaceMenuAction("archive", spaces)).toBeNull();
     expect(resolveSpaceMenuAction("fork-space:move:space:gone", spaces)).toBeNull();
+    expect(
+      resolveSpaceMenuAction(`fork-space:move:${fixtureSpaceIds.archived}`, spaces),
+    ).toBeNull();
   });
 });

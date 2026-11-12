@@ -1,7 +1,7 @@
 import type { Space } from "@t3tools/fork-spaces/contracts/space";
 
 // Mirrors SpaceTitle and SpaceBrief in the contract, so the form can say why it won't save.
-const TITLE_MAX = 120;
+export const SPACE_TITLE_MAX = 120;
 const BRIEF_MAX = 20_000;
 
 export type SpaceDraftResult =
@@ -20,11 +20,11 @@ export function validateSpaceDraft(
   if (title.length === 0) {
     return { _tag: "invalid", field: "title", message: "A space needs a title." };
   }
-  if (title.length > TITLE_MAX) {
+  if (title.length > SPACE_TITLE_MAX) {
     return {
       _tag: "invalid",
       field: "title",
-      message: `Keep the title to ${TITLE_MAX} characters.`,
+      message: `Keep the title to ${SPACE_TITLE_MAX} characters.`,
     };
   }
   if (draft.brief.length > BRIEF_MAX) {
@@ -50,13 +50,25 @@ export interface SpaceHomeTab<TContent> {
   readonly content: TContent | null | undefined;
 }
 
-/** Tabs that have content, or none at all when fewer than two do (calm by default). */
-export function visibleSpaceHomeTabs<TContent>(
+export type SpaceHomeLayout<TContent> =
+  | { readonly _tag: "empty" }
+  /** One section with content: shown on its own, without a tab bar (calm by default). */
+  | { readonly _tag: "single"; readonly content: TContent }
+  | {
+      readonly _tag: "tabs";
+      readonly tabs: ReadonlyArray<SpaceHomeTab<TContent> & { readonly content: TContent }>;
+    };
+
+/** Tabs only when two or more sections have content; empty sections are dropped. */
+export function spaceHomeLayout<TContent>(
   tabs: ReadonlyArray<SpaceHomeTab<TContent>>,
-): ReadonlyArray<SpaceHomeTab<TContent> & { readonly content: TContent }> {
+): SpaceHomeLayout<TContent> {
   const withContent = tabs.filter(
     (tab): tab is SpaceHomeTab<TContent> & { readonly content: TContent } =>
       tab.content !== null && tab.content !== undefined,
   );
-  return withContent.length > 1 ? withContent : [];
+  const [first] = withContent;
+  if (first === undefined) return { _tag: "empty" };
+  if (withContent.length === 1) return { _tag: "single", content: first.content };
+  return { _tag: "tabs", tabs: withContent };
 }
