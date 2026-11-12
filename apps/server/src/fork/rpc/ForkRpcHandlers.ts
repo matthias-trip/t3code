@@ -7,6 +7,7 @@ import type * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
 
 import { RpcInstrumentation } from "../../observability/RpcInstrumentation.ts";
+import { SpaceService } from "../spaces/SpaceService.ts";
 
 /**
  * Labels fork spans with `rpc.aggregate: "fork"`. RpcInstrumentation looks the aggregate up in
@@ -30,8 +31,16 @@ export const withForkRpcGroup = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<
   group.merge(ServerForkRpcGroup);
 
 export const ForkRpcHandlers = Layer.merge(
-  ServerForkRpcGroup.toLayer({
-    [FORK_WS_METHODS.capabilities]: () => Effect.succeed(serverForkCapabilities),
-  }),
+  ServerForkRpcGroup.toLayer(
+    Effect.gen(function* () {
+      const spaces = yield* SpaceService;
+      return {
+        [FORK_WS_METHODS.capabilities]: () => Effect.succeed(serverForkCapabilities),
+        [FORK_WS_METHODS.spacesDispatch]: (command) => spaces.dispatch(command),
+        [FORK_WS_METHODS.spacesSnapshot]: () => spaces.snapshot,
+        [FORK_WS_METHODS.spacesSubscribe]: () => spaces.subscribe,
+      };
+    }),
+  ),
   forkRpcAggregateLayer,
 );

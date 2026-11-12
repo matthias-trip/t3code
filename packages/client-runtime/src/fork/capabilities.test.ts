@@ -141,7 +141,13 @@ const forkServer = (answer: () => Effect.Effect<ForkCapabilities>) =>
   RpcServer.make(ForkRpcGroup, SERVER_OPTIONS).pipe(
     Effect.provide(
       Layer.merge(
-        ForkRpcGroup.toLayer({ [FORK_WS_METHODS.capabilities]: answer }),
+        ForkRpcGroup.toLayer({
+          [FORK_WS_METHODS.capabilities]: answer,
+          // Not exercised here: these tests are about capabilities only.
+          [FORK_WS_METHODS.spacesDispatch]: () => Effect.die("unused"),
+          [FORK_WS_METHODS.spacesSnapshot]: () => Effect.die("unused"),
+          [FORK_WS_METHODS.spacesSubscribe]: () => Stream.die("unused"),
+        }),
         Layer.succeed(RpcScopeAuthorization)((effect) => effect),
       ),
     ),
