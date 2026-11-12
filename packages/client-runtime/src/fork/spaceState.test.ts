@@ -10,21 +10,16 @@ import { spacesStateFromSnapshot } from "@t3tools/fork-spaces/shared/spaces";
 
 import {
   environmentSpaceLists,
-  type EnvironmentSpaces,
   mergedSpaceLists,
   spaceById,
   spaceIdForThread,
   threadsInSpace,
-  UNAVAILABLE_SPACES,
 } from "./spaceState.ts";
 
 const state = spacesStateFromSnapshot(fixtureSpacesSnapshot);
 const space = (id: Space["id"]) => state.spaces.get(id)!;
-const ready = (spaces: ReadonlyArray<Space>): EnvironmentSpaces => ({
-  status: "ready",
-  sequence: 1,
-  state: spacesStateFromSnapshot({ sequence: 1, spaces, threadSpaces: [] }),
-});
+const stateOf = (spaces: ReadonlyArray<Space>) =>
+  spacesStateFromSnapshot({ sequence: 1, spaces, threadSpaces: [] });
 
 const titles = (spaces: ReadonlyArray<{ readonly title: string }>) =>
   spaces.map((entry) => entry.title);
@@ -75,9 +70,9 @@ describe("space selectors", () => {
       updatedAt: "2026-11-12T08:00:00.000Z",
     };
     const lists = mergedSpaceLists([
-      { environmentId: local, spaces: { status: "ready", sequence: 12, state } },
-      { environmentId: remote, spaces: ready([remoteSpace]) },
-      { environmentId: EnvironmentId.make("upstream"), spaces: UNAVAILABLE_SPACES },
+      { environmentId: local, state },
+      { environmentId: remote, state: stateOf([remoteSpace]) },
+      { environmentId: EnvironmentId.make("upstream"), state: stateOf([]) },
     ]);
     expect(lists.active.map(({ environmentId, space }) => [environmentId, space.title])).toEqual([
       [local, "Payments retry redesign"],

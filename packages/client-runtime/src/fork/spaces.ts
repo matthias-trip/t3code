@@ -9,19 +9,32 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 
-import type * as EnvironmentRegistry from "../connection/registry.ts";
+import * as EnvironmentRegistry from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
-import { isRpcClientError } from "../rpc/client.ts";
+import { isAuthorizationFailure, isRpcClientError } from "../rpc/client.ts";
 import type { RpcSession } from "../rpc/session.ts";
-import { createEnvironmentRpcCommand, followStreamInEnvironment } from "../state/runtime.ts";
+import {
+  type AtomCommandFailure,
+  type AtomCommandResult,
+  createEnvironmentRpcCommand,
+  createRuntimeCommand,
+  followStreamInEnvironment,
+} from "../state/runtime.ts";
 import { forkCapabilitySet } from "./capabilities.ts";
 import {
+  type EnvironmentSpace,
+  environmentSpaceLists,
   type EnvironmentSpaces,
   LOADING_SPACES,
+  mergedSpaceLists,
   reduceEnvironmentSpaces,
+  type SpaceLists,
+  type SpacesSyncEnded,
   type SpacesSyncInput,
+  spacesStateOf,
   UNAVAILABLE_SPACES,
 } from "./spaceState.ts";
+import type { SpacesState } from "@t3tools/fork-spaces/shared/spaces";
 
 type Command<Type extends SpaceCommand["type"]> = Extract<SpaceCommand, { readonly type: Type }>;
 type Fields<Type extends SpaceCommand["type"]> = Omit<Command<Type>, "type" | "commandId">;
@@ -88,39 +101,147 @@ const isTransportFailure = (cause: Cause.Cause<unknown>) =>
   cause.reasons.length > 0 &&
   cause.reasons.every((reason) => reason._tag === "Fail" && isRpcClientError(reason.error));
 
-// Every subscription starts with a snapshot, so a new session just subscribes again. A lost
-// transport waits for that session; any other failure is reported and also waits for it.
-const sessionItems = (session: RpcSession): Stream.Stream<SpacesSyncInput> =>
-  session.client[FORK_WS_METHODS.spacesSubscribe]({}).pipe(
-    Stream.catchCause((cause) =>
-      isTransportFailure(cause)
-        ? Stream.empty
-        : Stream.make({ type: "failed" as const, message: failureMessage(cause) }),
-    ),
-  );
+const STOPPED: SpacesSyncEnded = { type: "ended", failure: null };
 
+const endedBy = (cause: Cause.Cause<unknown>): SpacesSyncEnded => {
+  if (isTransportFailure(cause) || Cause.hasInterruptsOnly(cause)) return STOPPED;
+  return {
+    type: "ended",
+    failure: { message: failureMessage(cause), retrying: !isAuthorizationFailure(cause) },
+  };
+};
+
+const RETRY_BASE_MS = 1_000;
+const RETRY_CAP_MS = 30_000;
+
+/**
+ * Any end but an authorization error resubscribes on the same session after a capped backoff
+ * that a snapshot resets. The supervisor replaces a session only when its socket closes, so a
+ * stream's `RpcClientError` can leave it in place; an authorization error waits for a new one.
+ */
+const sessionItems = (session: RpcSession): Stream.Stream<SpacesSyncInput> => {
+  let failures = 0;
+  const attempt = (): Stream.Stream<SpacesSyncInput> => {
+    let ended: SpacesSyncEnded = STOPPED;
+    return Stream.suspend(() => session.client[FORK_WS_METHODS.spacesSubscribe]({})).pipe(
+      Stream.tap((item) =>
+        Effect.sync(() => {
+          if (item.type === "snapshot") failures = 0;
+        }),
+      ),
+      Stream.catchCause((cause) => {
+        ended = endedBy(cause);
+        return Stream.empty;
+      }),
+      Stream.concat(
+        Stream.suspend(() => {
+          const end = Stream.succeed<SpacesSyncInput>(ended);
+          if (ended.failure !== null && !ended.failure.retrying) return end;
+          const delay = Math.min(RETRY_BASE_MS * 2 ** failures, RETRY_CAP_MS);
+          failures += 1;
+          return end.pipe(
+            Stream.concat(Stream.fromEffect(Effect.sleep(delay)).pipe(Stream.drain)),
+            Stream.concat(Stream.suspend(attempt)),
+          );
+        }),
+      ),
+    );
+  };
+  return attempt();
+};
+
+// A new session is not live until its snapshot arrives.
+const supervisedSpaces = Stream.unwrap(
+  EnvironmentSupervisor.EnvironmentSupervisor.pipe(
+    Effect.map((supervisor) =>
+      SubscriptionRef.changes(supervisor.session).pipe(
+        Stream.switchMap(
+          Option.match({
+            onNone: () => Stream.succeed<SpacesSyncInput>(STOPPED),
+            onSome: (session) =>
+              Stream.succeed<SpacesSyncInput>(STOPPED).pipe(Stream.concat(sessionItems(session))),
+          }),
+        ),
+        Stream.scan(() => LOADING_SPACES, reduceEnvironmentSpaces),
+        Stream.changes,
+      ),
+    ),
+  ),
+);
+
+// A removed environment shows loading again rather than its last mirror.
 const followSpaces = (environmentId: EnvironmentId) =>
-  followStreamInEnvironment(
-    environmentId,
-    Stream.unwrap(
-      EnvironmentSupervisor.EnvironmentSupervisor.pipe(
-        Effect.map((supervisor) =>
-          SubscriptionRef.changes(supervisor.session).pipe(
-            Stream.switchMap(Option.match({ onNone: () => Stream.empty, onSome: sessionItems })),
-            Stream.scan(() => LOADING_SPACES, reduceEnvironmentSpaces),
+  Stream.unwrap(
+    EnvironmentRegistry.EnvironmentRegistry.pipe(
+      Effect.map((registry) =>
+        SubscriptionRef.changes(registry.entries).pipe(
+          Stream.map((entries) => entries.has(environmentId)),
+          Stream.changes,
+          Stream.switchMap((registered) =>
+            registered
+              ? followStreamInEnvironment(environmentId, supervisedSpaces)
+              : Stream.make(LOADING_SPACES),
           ),
         ),
       ),
     ),
   );
 
-// A dispatch resolves once local state has caught up, so a caller can read what it changed.
+/**
+ * `sequence` is the server's after the command. `caughtUp` is false when the wait ended before
+ * local state reached it: the subscription stopped being live, the environment was removed, or
+ * the fallback timeout passed. The command applied either way.
+ */
+export interface SpaceDispatchOutcome {
+  readonly sequence: number;
+  readonly caughtUp: boolean;
+}
+
 const CATCH_UP_TIMEOUT = "10 seconds";
+
+type CatchUp = "waiting" | "caughtUp" | "behind";
+
+// Loading before the first ready state is the first snapshot on its way; after it, the
+// environment was removed.
+const catchUpStep = (sequence: number, seenReady: boolean, spaces: EnvironmentSpaces): CatchUp => {
+  switch (spaces.status) {
+    case "ready":
+      if (spaces.sequence >= sequence) return "caughtUp";
+      return spaces.live ? "waiting" : "behind";
+    case "loading":
+      return seenReady ? "behind" : "waiting";
+    case "failed":
+    case "unavailable":
+      return "behind";
+  }
+};
+
+/** Sorts once per state change; the same state keeps the same lists. */
+const memoizeOnState = <Key, A>(compute: (key: Key) => A) => {
+  let last: { readonly key: Key; readonly value: A } | undefined;
+  return (key: Key): A => {
+    if (last === undefined || last.key !== key) last = { key, value: compute(key) };
+    return last.value;
+  };
+};
+
+type EnvironmentState = { readonly environmentId: EnvironmentId; readonly state: SpacesState };
+
+const sameStates = (
+  left: ReadonlyArray<EnvironmentState>,
+  right: ReadonlyArray<EnvironmentState>,
+) =>
+  left.length === right.length &&
+  left.every(
+    (entry, index) =>
+      entry.environmentId === right[index]!.environmentId && entry.state === right[index]!.state,
+  );
 
 /**
  * Spaces for every environment. `capabilities` is the environment's fork capabilities query
  * (`createForkCapabilitiesAtomFamily`); `fork.spaces.subscribe` runs only where it includes
  * "spaces", so an upstream server sees nothing beyond the capabilities request.
+ * `environmentIds` lists the environments whose spaces `mergedLists` merges, in a stable order.
  */
 export function createSpacesAtoms<R, ER>(
   runtime: Atom.AtomRuntime<EnvironmentRegistry.EnvironmentRegistry | R, ER>,
@@ -128,6 +249,7 @@ export function createSpacesAtoms<R, ER>(
     readonly capabilities: (
       environmentId: EnvironmentId,
     ) => Atom.Atom<AsyncResult.AsyncResult<ForkCapabilities, unknown>>;
+    readonly environmentIds: Atom.Atom<ReadonlyArray<EnvironmentId>>;
   },
 ) {
   const live = Atom.family((environmentId: EnvironmentId) =>
@@ -144,30 +266,84 @@ export function createSpacesAtoms<R, ER>(
     }).pipe(Atom.withLabel(`environment-data:fork:spaces:${environmentId}`)),
   );
 
-  const dispatch = createEnvironmentRpcCommand(runtime, {
+  /** One environment's spaces, sorted as `environmentSpaceLists`. */
+  const lists = Atom.family((environmentId: EnvironmentId) => {
+    const sorted = memoizeOnState(environmentSpaceLists);
+    return Atom.make((get) => sorted(spacesStateOf(get(spaces(environmentId))))).pipe(
+      Atom.withLabel(`environment-data:fork:space-lists:${environmentId}`),
+    );
+  });
+
+  let lastMerged:
+    | {
+        readonly states: ReadonlyArray<EnvironmentState>;
+        readonly value: SpaceLists<EnvironmentSpace>;
+      }
+    | undefined;
+  /** Every environment's spaces in one list, sorted as `mergedSpaceLists`. */
+  const mergedLists = Atom.make((get) => {
+    const states = get(options.environmentIds).map((environmentId) => ({
+      environmentId,
+      state: spacesStateOf(get(spaces(environmentId))),
+    }));
+    if (lastMerged === undefined || !sameStates(lastMerged.states, states)) {
+      lastMerged = { states, value: mergedSpaceLists(states) };
+    }
+    return lastMerged.value;
+  }).pipe(Atom.withLabel("environment-data:fork:space-lists:merged"));
+
+  // Every command in one environment applies in the order it was made, so a create reaches the
+  // server before a move into the new space. The lane holds only the request; the catch-up wait
+  // runs outside it, so a slow stream does not hold back the next command.
+  const send = createEnvironmentRpcCommand(runtime, {
     label: "environment-data:fork:spaces:dispatch",
     tag: FORK_WS_METHODS.spacesDispatch,
-    // Commands on one space, or one thread's membership, apply in the order they were made.
-    concurrency: {
-      mode: "serial",
-      key: ({ environmentId, input }) =>
-        JSON.stringify([
-          environmentId,
-          input.type === "thread.space.set" ? input.threadId : input.spaceId,
-        ]),
-    },
-    onSuccess: ({ environmentId }, registry, result) =>
-      AtomRegistry.toStream(registry, spaces(environmentId)).pipe(
-        Stream.filter(
-          (current) =>
-            current.status !== "loading" &&
-            (current.status !== "ready" || current.sequence >= result.sequence),
+    concurrency: { mode: "serial", key: ({ environmentId }) => environmentId },
+  });
+  const catchUp = createRuntimeCommand(runtime, {
+    label: "environment-data:fork:spaces:catch-up",
+    execute: (
+      target: { readonly environmentId: EnvironmentId; readonly sequence: number },
+      registry,
+    ) =>
+      AtomRegistry.toStream(registry, spaces(target.environmentId)).pipe(
+        Stream.mapAccum(
+          () => false,
+          (seenReady, current) => {
+            const step = catchUpStep(target.sequence, seenReady, current);
+            return [seenReady || current.status === "ready", [step]] as const;
+          },
         ),
+        Stream.filter((step) => step !== "waiting"),
         Stream.runHead,
         Effect.timeoutOption(CATCH_UP_TIMEOUT),
-        Effect.asVoid,
+        Effect.map((step) => Option.getOrUndefined(Option.flatten(step)) === "caughtUp"),
       ),
   });
 
-  return { spaces, dispatch };
+  /**
+   * Sends a command; resolves with `SpaceDispatchOutcome` once local state has caught up, or
+   * fails as the RPC does (`SpaceCommandRejectedError` and the rest) without waiting.
+   */
+  type SendFailure = AtomCommandFailure<Awaited<ReturnType<typeof send.run>>>;
+  const dispatch = {
+    label: send.label,
+    requiredScopes: send.requiredScopes,
+    permissionAtom: send.permissionAtom,
+    run: async (
+      registry: AtomRegistry.AtomRegistry,
+      target: { readonly environmentId: EnvironmentId; readonly input: SpaceCommand },
+    ): Promise<AtomCommandResult<SpaceDispatchOutcome, SendFailure>> => {
+      const sent = await send.run(registry, target);
+      if (!AsyncResult.isSuccess(sent)) return AsyncResult.failure(sent.cause);
+      const { sequence } = sent.value;
+      const waited = await catchUp.run(registry, { environmentId: target.environmentId, sequence });
+      return AsyncResult.success({
+        sequence,
+        caughtUp: AsyncResult.isSuccess(waited) && waited.value,
+      });
+    },
+  };
+
+  return { spaces, lists, mergedLists, dispatch };
 }

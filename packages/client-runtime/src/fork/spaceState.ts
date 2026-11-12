@@ -8,28 +8,38 @@ import {
 } from "@t3tools/fork-spaces/shared/spaces";
 
 /**
- * `unavailable`: the environment does not offer spaces (an upstream server). `failed`: the
- * subscription failed before any snapshot; the next session retries. `ready` mirrors the server
- * as of `sequence` and keeps its state through later failures.
+ * `unavailable`: an upstream server. `failed`: failed before any snapshot; `retrying` is false
+ * for an authorization error, which waits for the next session. `ready` mirrors the server as of
+ * `sequence`; `live` is false from a stream end, failure or new session until the next snapshot.
  */
 export type EnvironmentSpaces =
   | { readonly status: "loading" }
   | { readonly status: "unavailable" }
-  | { readonly status: "failed"; readonly message: string }
-  | { readonly status: "ready"; readonly sequence: number; readonly state: SpacesState };
+  | { readonly status: "failed"; readonly message: string; readonly retrying: boolean }
+  | {
+      readonly status: "ready";
+      readonly sequence: number;
+      readonly state: SpacesState;
+      readonly live: boolean;
+    };
 
 export const LOADING_SPACES: EnvironmentSpaces = { status: "loading" };
 export const UNAVAILABLE_SPACES: EnvironmentSpaces = { status: "unavailable" };
 
-/** What one subscription delivers: a stream item, or the failure that ended it. */
-export type SpacesSyncInput =
-  | SpacesStreamItem
-  | { readonly type: "failed"; readonly message: string };
+/** Why a subscription stopped delivering: `failure` is null for a lost session or a plain end. */
+export interface SpacesSyncEnded {
+  readonly type: "ended";
+  readonly failure: { readonly message: string; readonly retrying: boolean } | null;
+}
+
+/** What a subscription delivers: a stream item, or the end of that subscription. */
+export type SpacesSyncInput = SpacesStreamItem | SpacesSyncEnded;
 
 /**
  * A snapshot replaces local state. An event applies only after a snapshot and only when its
  * sequence is newer than the last one seen; an event type this client does not know advances
- * the sequence and changes nothing else.
+ * the sequence and changes nothing else. An end keeps a ready mirror but marks it not live;
+ * before any snapshot, a failure is reported and a plain end keeps what was shown.
  */
 export const reduceEnvironmentSpaces = (
   current: EnvironmentSpaces,
@@ -41,24 +51,26 @@ export const reduceEnvironmentSpaces = (
         status: "ready",
         sequence: input.snapshot.sequence,
         state: spacesStateFromSnapshot(input.snapshot),
+        live: true,
       };
     case "event": {
       if (current.status !== "ready" || input.sequence <= current.sequence) return current;
       return {
-        status: "ready",
+        ...current,
         sequence: input.sequence,
         state: isUnknownUnionMember(input.event)
           ? current.state
           : applySpaceEvent(current.state, input.event),
       };
     }
-    case "failed":
-      return current.status === "ready" ? current : { status: "failed", message: input.message };
+    case "ended":
+      if (current.status === "ready") return current.live ? { ...current, live: false } : current;
+      return input.failure === null ? current : { status: "failed", ...input.failure };
   }
 };
 
 /** The spaces state to select from; empty until ready. */
-const spacesStateOf = (spaces: EnvironmentSpaces): SpacesState =>
+export const spacesStateOf = (spaces: EnvironmentSpaces): SpacesState =>
   spaces.status === "ready" ? spaces.state : emptySpacesState;
 
 export interface SpaceLists<A> {
@@ -112,12 +124,12 @@ export interface EnvironmentSpace {
 export const mergedSpaceLists = (
   environments: ReadonlyArray<{
     readonly environmentId: EnvironmentId;
-    readonly spaces: EnvironmentSpaces;
+    readonly state: SpacesState;
   }>,
 ): SpaceLists<EnvironmentSpace> =>
   splitSpaces(
-    environments.flatMap(({ environmentId, spaces }) =>
-      [...spacesStateOf(spaces).spaces.values()].map((space) => ({ environmentId, space })),
+    environments.flatMap(({ environmentId, state }) =>
+      [...state.spaces.values()].map((space) => ({ environmentId, space })),
     ),
     (entry) => entry.space,
   );
