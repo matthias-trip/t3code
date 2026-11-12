@@ -26,7 +26,15 @@ const INTERFACE = [
 const MESSAGES = [/^apps\/server\/src\//, /^packages\/[^/]+\/src\//];
 // Text written for agents and other programs, not for people. The web and
 // desktop apps are exempt: their files with these names are screens.
-const AGENT_FACING = [/mcp/i, /instructions/i, /prompt/i, /textGeneration/i, /pullRequestWatch/i, /testkit/];
+const AGENT_FACING = [
+  /mcp/i,
+  /instructions/i,
+  /prompt/i,
+  /textGeneration/i,
+  /pullRequestWatch/i,
+  /htmlRender/,
+  /testkit/,
+];
 const NEVER = [/\/fixtures\//, /\.snap$/];
 
 function rulesFor(file) {
@@ -34,7 +42,9 @@ function rulesFor(file) {
   const screen =
     /^apps\/(?:web|desktop)\//.test(file) ||
     // Link errors and tool-call labels shown in the timeline.
-    /^packages\/(?:shared|client-runtime)\/src\/(?:promptLinks|t3McpToolPresentation)\.ts$/.test(file);
+    /^packages\/(?:shared|client-runtime)\/src\/(?:promptLinks|t3McpToolPresentation)\.ts$/.test(
+      file,
+    );
   if (!screen && AGENT_FACING.some((pattern) => pattern.test(file))) return null;
   if (INTERFACE.some((pattern) => pattern.test(file))) return RULES;
   if (MESSAGES.some((pattern) => pattern.test(file))) return PRODUCT_RULES;
