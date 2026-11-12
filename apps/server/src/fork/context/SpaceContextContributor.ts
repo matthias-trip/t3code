@@ -8,8 +8,9 @@ import * as SpaceService from "../spaces/SpaceService.ts";
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 
 /**
- * The thread's space: title, project names and brief, on every turn. Nothing for a thread
- * without a space or in an archived one. The brief comes last, so a cut drops its tail first.
+ * The thread's space: id and title as attributes, then project names and the brief. Nothing
+ * for a thread without a space or in an archived one. The brief comes last, so a cut drops its
+ * tail first.
  */
 export const make = Effect.gen(function* () {
   const spaces = yield* SpaceService.SpaceService;
@@ -17,26 +18,33 @@ export const make = Effect.gen(function* () {
 
   // A missing or unreadable project shows its id: the name is a convenience, never a blocker.
   const projectLabels = Effect.fn("ForkTurnContext.space.projectLabels")(function* (
+    threadId: ThreadId,
     projectIds: ReadonlyArray<ProjectId>,
   ) {
     if (projectIds.length === 0) return [];
-    const shells = yield* projects.listShells({ projectIds }).pipe(Effect.orElseSucceed(() => []));
+    const shells = yield* projects.listShells({ projectIds }).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning("Fork turn context could not read project names; showing ids", {
+          threadId,
+          name: error._tag,
+        }).pipe(Effect.as([])),
+      ),
+    );
     const titles = new Map(shells.map((shell) => [shell.id, oneLine(shell.title)]));
     return projectIds.map((id) => titles.get(id) ?? id);
   });
 
   return {
     kind: "space",
+    shortenedLabel: "brief",
     contribute: Effect.fn("ForkTurnContext.space")(function* (input: {
       readonly threadId: ThreadId;
     }) {
       const found = yield* spaces.spaceForThread(input.threadId);
-      if (Option.isNone(found) || found.value.archivedAt !== null) return Option.none<string>();
+      if (Option.isNone(found) || found.value.archivedAt !== null) return Option.none();
       const space = found.value;
-      const lines = [
-        `This thread belongs to the space "${oneLine(space.title)}" (spaceId: ${space.id}).`,
-      ];
-      const labels = yield* projectLabels(space.projectIds);
+      const lines = ["This thread belongs to this space."];
+      const labels = yield* projectLabels(input.threadId, space.projectIds);
       if (labels.length > 0) lines.push(`projects: ${labels.join(", ")}`);
       const brief = space.brief.trim();
       if (brief !== "") {
@@ -45,7 +53,13 @@ export const make = Effect.gen(function* () {
           brief,
         );
       }
-      return Option.some(lines.join("\n"));
+      return Option.some({
+        attributes: [
+          ["id", space.id],
+          ["title", oneLine(space.title)],
+        ] as const,
+        text: lines.join("\n"),
+      });
     }),
   };
 });
