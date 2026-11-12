@@ -7,6 +7,10 @@
       "types": "./src/contracts/capabilities.ts",
       "import": "./src/contracts/capabilities.ts"
     },
+    "./contracts/rpc": {
+      "types": "./src/contracts/rpc.ts",
+      "import": "./src/contracts/rpc.ts"
+    },
     "./shared/version": {
       "types": "./src/shared/version.ts",
       "import": "./src/shared/version.ts"
