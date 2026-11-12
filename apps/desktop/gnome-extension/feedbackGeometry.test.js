@@ -5,7 +5,9 @@ const window = (pid, title) => ({ get_pid: () => pid, get_title: () => title });
 
 it("activates only a window of the process authenticated by D-Bus", () => {
   const target = window(42, "Claude Code");
-  expect(findCaptureDestination([window(99, "Claude Code"), target], 42, "Claude Code")).toBe(target);
+  expect(findCaptureDestination([window(99, "Claude Code"), target], 42, "Claude Code")).toBe(
+    target,
+  );
   expect(findCaptureDestination([window(99, "Claude Code")], 42, "Claude Code")).toBeUndefined();
   expect(findCaptureDestination([target], 42, "Title before navigation")).toBe(target);
 });

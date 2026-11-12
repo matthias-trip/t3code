@@ -9,7 +9,8 @@ export function relayFailureReason(cause: unknown): string | null {
   for (let current = cause, depth = 0; current instanceof Error && depth < 4; depth += 1) {
     if (isRequestTimeout(current)) return "Claude Code Connect timed out. Try again.";
     if (isRequestFailed(current)) {
-      if (current.transportFailed) return "Could not reach Claude Code Connect. Check your network.";
+      if (current.transportFailed)
+        return "Could not reach Claude Code Connect. Check your network.";
       if (current.relayError) {
         return current.relayError._tag === "RelayInternalError"
           ? "Claude Code Connect is unavailable. Try again."

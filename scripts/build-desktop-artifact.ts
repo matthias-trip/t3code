@@ -2811,6 +2811,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   const updateChannel = resolveDesktopUpdateChannel(version);
   // Missing publish config infers a GitHub feed from tokens; staging has no repository, so manifest generation would crash.
   buildConfig.publish = null;
+  // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switch
   const forkUpdateUrl = process.env.FORK_UPDATE_URL?.trim();
   if (forkUpdateUrl) buildConfig.publish = [{ provider: "generic", url: forkUpdateUrl }];
   if (!isDesktopPreviewVersion(version)) {
@@ -2884,8 +2885,11 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
               hardenedRuntime: true,
               entitlements: path.join(repoRoot, "fork/entitlements.mac.plist"),
               entitlementsInherit: path.join(repoRoot, "fork/entitlements.mac.plist"),
+              // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switches, read once per build
               ...(process.env.FORK_MAC_IDENTITY ? { identity: process.env.FORK_MAC_IDENTITY } : {}),
+              // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switches, read once per build
               ...(process.env.FORK_MAC_SIGN_TYPE === "development" ? { type: "development" } : {}),
+              // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switches, read once per build
               ...(process.env.FORK_MAC_NOTARIZE === "true" ? {} : { notarize: false }),
             }
           : {}),

@@ -1629,7 +1629,9 @@ const make = Effect.gen(function* () {
     yield* unlink().pipe(
       Effect.tap(() => Effect.logInfo("Claude Code Connect is off by managed policy; unlinked.")),
       Effect.catch((cause) =>
-        Effect.logWarning("Failed to unlink Claude Code Connect turned off by managed policy", { cause }),
+        Effect.logWarning("Failed to unlink Claude Code Connect turned off by managed policy", {
+          cause,
+        }),
       ),
     );
     const refused = Effect.fn("CloudLink.refusedByPolicy")(function* () {

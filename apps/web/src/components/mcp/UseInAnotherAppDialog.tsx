@@ -432,7 +432,9 @@ function GateScreen({
         return (
           <GateMessage
             title={
-              reachability ? `${name}'s Claude Code Connect is offline` : `Can't check Claude Code Connect on ${name}`
+              reachability
+                ? `${name}'s Claude Code Connect is offline`
+                : `Can't check Claude Code Connect on ${name}`
             }
             lines={reachability ? [reachability.reason, `Fix: ${reachability.fix}`] : []}
           >

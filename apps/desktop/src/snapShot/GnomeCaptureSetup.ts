@@ -54,7 +54,9 @@ export async function installGnomeCaptureBundle({ bundle, dataHome }: SetupPaths
       await NodeFSP.readFile(NodePath.join(target, "metadata.json"), "utf8"),
     );
     if (installed.version > metadata.version)
-      throw new Error("A newer extension is installed. Update Claude Code instead of replacing it.");
+      throw new Error(
+        "A newer extension is installed. Update Claude Code instead of replacing it.",
+      );
   }
   const staged = await NodeFSP.mkdtemp(NodePath.join(parent, ".t3-capture-install-"));
   let backup: string | undefined;

@@ -319,8 +319,8 @@ export function CaptureShortcutConfig({
             {isCopied ? "Copied" : "Copy shortcut"}
           </Button>
           <p>
-            Turn capture off in Claude Code to stop it. Remove the shortcut from {desktop} to free up
-            the keys.
+            Turn capture off in Claude Code to stop it. Remove the shortcut from {desktop} to free
+            up the keys.
           </p>
           {state.shortcutActionRegistered === false ? (
             <p role="status">{state.shortcutMessage}</p>

@@ -220,6 +220,7 @@ import {
   readTailscaleStatus,
 } from "@t3tools/tailscale";
 import * as ServerActivation from "./serverActivation.ts";
+import * as ForkLayer from "./fork/ForkLayer.ts"; // fork-seam
 
 // Escaped MCP handoff provenance can exceed find-my-way's 100-character segment default.
 const HTTP_ROUTER_CONFIG = {
@@ -381,7 +382,8 @@ const layerPlatformServices = DocumentText.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
 );
 
-const layerPersistence = Layer.empty.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));
+// fork-seam: fork migrations run after upstream's; the fork event store shares the database.
+const layerPersistence = ForkLayer.layer.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));
 
 const layerVcsDriverRegistry = VcsDriverRegistry.layer.pipe(Layer.provide(VcsProjectConfig.layer));
 
@@ -1038,14 +1040,19 @@ const layerMakeServer = Layer.unwrap(
             const recoverManagedTunnel = (config: RelayManagedEndpointRuntimeConfig) =>
               runManagedTunnelRecovery(config).pipe(
                 Effect.tap((recovered) =>
-                  recovered ? Effect.logInfo("Claude Code Connect managed tunnel recovered") : Effect.void,
+                  recovered
+                    ? Effect.logInfo("Claude Code Connect managed tunnel recovered")
+                    : Effect.void,
                 ),
                 Effect.catchCause((cause) =>
                   Cause.hasInterrupts(cause)
                     ? Effect.interrupt
-                    : Effect.logWarning("Failed to recover the Claude Code Connect managed tunnel", {
-                        cause,
-                      }),
+                    : Effect.logWarning(
+                        "Failed to recover the Claude Code Connect managed tunnel",
+                        {
+                          cause,
+                        },
+                      ),
                 ),
               );
             yield* endpointRuntime.recoveryRequests.pipe(
@@ -1055,9 +1062,9 @@ const layerMakeServer = Layer.unwrap(
             const wantsCliLink = hasCloudPublicConfig
               ? yield* CloudCliState.readCliDesiredCloudLink.pipe(
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to read the desired Claude Code Connect link", { cause }).pipe(
-                      Effect.as(false),
-                    ),
+                    Effect.logWarning("Failed to read the desired Claude Code Connect link", {
+                      cause,
+                    }).pipe(Effect.as(false)),
                   ),
                 )
               : false;
@@ -1077,9 +1084,12 @@ const layerMakeServer = Layer.unwrap(
                 ? false
                 : yield* cloudLink.startManagedTunnelIfOriginConfirmed(localOrigin).pipe(
                     Effect.catch((cause) =>
-                      Effect.logWarning("Failed to start the confirmed Claude Code Connect tunnel", {
-                        cause,
-                      }).pipe(Effect.as(false)),
+                      Effect.logWarning(
+                        "Failed to start the confirmed Claude Code Connect tunnel",
+                        {
+                          cause,
+                        },
+                      ).pipe(Effect.as(false)),
                     ),
                   );
             const startStoredManagedTunnel = cloudLink
@@ -1095,7 +1105,9 @@ const layerMakeServer = Layer.unwrap(
                     : Effect.void,
                 ),
                 Effect.catch((cause) =>
-                  Effect.logWarning("Failed to start the stored Claude Code Connect tunnel", { cause }),
+                  Effect.logWarning("Failed to start the stored Claude Code Connect tunnel", {
+                    cause,
+                  }),
                 ),
                 Effect.asVoid,
               );
@@ -1116,9 +1128,12 @@ const layerMakeServer = Layer.unwrap(
               Effect.catchCause((cause) =>
                 Cause.hasInterrupts(cause)
                   ? Effect.interrupt
-                  : Effect.logWarning("Failed to register Claude Code Connect managed tunnel recovery", {
-                      cause,
-                    }).pipe(Effect.as({ status: "unavailable" as const })),
+                  : Effect.logWarning(
+                      "Failed to register Claude Code Connect managed tunnel recovery",
+                      {
+                        cause,
+                      },
+                    ).pipe(Effect.as({ status: "unavailable" as const })),
               ),
             );
             // Jitter registrations so update waves do not hit the relay simultaneously.
@@ -1157,9 +1172,12 @@ const layerMakeServer = Layer.unwrap(
                       : Effect.logInfo("Claude Code Connect desired link reconciled on startup"),
                   ),
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to reconcile Claude Code Connect desired link on startup", {
-                      cause,
-                    }).pipe(Effect.as(null)),
+                    Effect.logWarning(
+                      "Failed to reconcile Claude Code Connect desired link on startup",
+                      {
+                        cause,
+                      },
+                    ).pipe(Effect.as(null)),
                   ),
                 );
               if (reconciledMode === "managed") {

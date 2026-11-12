@@ -7,7 +7,3 @@
 packages/source-control-github/schema/** linguist-generated
 apps/server/schema/** linguist-generated
 **/*.graphql.ts linguist-generated
-# Claude Code fork: generated, so a merge keeps this side's copy and
-# fork/routes.mjs regenerates it from both sides' routes. The driver is set up
-# by setup_merge_drivers in fork/lib.sh; without it git merges the file as text.
-apps/web/src/routeTree.gen.ts merge=fork-ours

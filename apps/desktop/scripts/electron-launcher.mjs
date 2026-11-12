@@ -269,7 +269,8 @@ function resolveMacBundleInfoPlistStrings(executableName) {
     CFBundleIconFile: "icon.icns",
     NSScreenCaptureUsageDescription:
       "Claude Code captures the active window when you use the snapshot shortcut.",
-    NSDocumentsFolderUsageDescription: "Claude Code reads project files you open in the desktop app.",
+    NSDocumentsFolderUsageDescription:
+      "Claude Code reads project files you open in the desktop app.",
   };
 }
 

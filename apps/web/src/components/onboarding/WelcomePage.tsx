@@ -1866,12 +1866,13 @@ function CliPathSetup() {
       <p className="min-w-0 flex-1 text-sm text-muted-foreground">
         {setup.added ? (
           <>
-            Added to {setup.file}. Open a new terminal to use <code className="font-mono">claude-code-app</code>.
+            Added to {setup.file}. Open a new terminal to use{" "}
+            <code className="font-mono">claude-code-app</code>.
           </>
         ) : (
           <>
-            Use <code className="font-mono">claude-code-app</code> from any terminal. Adds one line to{" "}
-            {setup.file}.
+            Use <code className="font-mono">claude-code-app</code> from any terminal. Adds one line
+            to {setup.file}.
           </>
         )}
       </p>

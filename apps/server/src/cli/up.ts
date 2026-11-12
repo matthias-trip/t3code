@@ -465,7 +465,10 @@ export const upCommand = Command.make("up", {
   ),
   Command.withExamples([
     { command: "t3 up", description: "Choose remote access." },
-    { command: "t3 up --connect", description: "Turn on Claude Code Connect. Keep other settings." },
+    {
+      command: "t3 up --connect",
+      description: "Turn on Claude Code Connect. Keep other settings.",
+    },
     { command: "t3 up --lan", description: "Allow LAN access with pairing codes." },
     { command: "t3 up --no-lan", description: "Stop LAN access." },
     { command: "t3 up --yes", description: "Take the defaults with no questions." },
@@ -478,7 +481,9 @@ export const connectCommand = Command.make("connect", {
   ...projectLocationFlags,
   headless: headlessFlag,
 }).pipe(
-  Command.withDescription("Set up Claude Code Connect for this machine. Same as `t3 up --connect`."),
+  Command.withDescription(
+    "Set up Claude Code Connect for this machine. Same as `t3 up --connect`.",
+  ),
   Command.withHandler((flags) =>
     runCloudCommand(
       flags,
