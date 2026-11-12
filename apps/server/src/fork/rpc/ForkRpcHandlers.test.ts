@@ -9,12 +9,17 @@ import * as Tracer from "effect/Tracer";
 
 import * as RpcAuthorization from "../../auth/RpcAuthorization.ts";
 import { rpcInstrumentationLayer } from "../../observability/RpcInstrumentation.ts";
+import * as SpaceService from "../spaces/SpaceService.ts";
 import { ForkRpcHandlers, ServerForkRpcGroup } from "./ForkRpcHandlers.ts";
 
 const makeClient = (scopes: Parameters<typeof RpcAuthorization.layer>[0]) =>
   RpcTest.makeClient(ServerForkRpcGroup).pipe(
     Effect.provide(
-      Layer.mergeAll(ForkRpcHandlers, RpcAuthorization.layer(scopes), rpcInstrumentationLayer),
+      Layer.mergeAll(
+        ForkRpcHandlers.pipe(Layer.provide(SpaceService.layerMemory())),
+        RpcAuthorization.layer(scopes),
+        rpcInstrumentationLayer,
+      ),
     ),
   );
 

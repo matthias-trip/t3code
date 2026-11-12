@@ -11,9 +11,21 @@
       "types": "./src/contracts/rpc.ts",
       "import": "./src/contracts/rpc.ts"
     },
+    "./contracts/space": {
+      "types": "./src/contracts/space.ts",
+      "import": "./src/contracts/space.ts"
+    },
     "./shared/version": {
       "types": "./src/shared/version.ts",
       "import": "./src/shared/version.ts"
+    },
+    "./shared/spaces": {
+      "types": "./src/shared/spaces.ts",
+      "import": "./src/shared/spaces.ts"
+    },
+    "./shared/spaceFixtures": {
+      "types": "./src/shared/spaceFixtures.ts",
+      "import": "./src/shared/spaceFixtures.ts"
     },
     "./server/capabilities": {
       "types": "./src/server/capabilities.ts",
