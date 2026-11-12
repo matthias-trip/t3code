@@ -957,6 +957,9 @@ importers:
       '@t3tools/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@t3tools/fork-spaces':
+        specifier: workspace:*
+        version: link:../../packages/fork-spaces
       '@t3tools/provider-testing':
         specifier: workspace:*
         version: link:../../packages/provider-testing
@@ -1071,6 +1074,9 @@ importers:
       '@t3tools/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@t3tools/fork-spaces':
+        specifier: workspace:*
+        version: link:../../packages/fork-spaces
       '@t3tools/provider-core':
         specifier: workspace:*
         version: link:../../packages/provider-core
