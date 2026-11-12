@@ -3,6 +3,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 
@@ -162,6 +163,8 @@ describe("ForkEventStore", () => {
       assert.deepStrictEqual(second.receipt, first.receipt);
       assert.strictEqual(projections, 1);
       assert.deepStrictEqual(yield* counts, { events: 1, receipts: 1, projections: 1 });
+      assert.deepStrictEqual(yield* store.receipt(input.commandId), Option.some(first.receipt));
+      assert.isTrue(Option.isNone(yield* store.receipt("command:never")));
     }).pipe(Effect.provide(layerTest)),
   );
 

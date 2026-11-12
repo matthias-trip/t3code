@@ -2,6 +2,7 @@ import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as SqlError from "effect/sql/SqlError";
@@ -38,10 +39,14 @@ export class ForkEventStoreReadError extends Schema.TaggedError<ForkEventStoreRe
   "ForkEventStoreReadError",
   {
     afterSequence: Schema.optional(Schema.Number),
+    commandId: Schema.optional(Schema.String),
     cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
+    if (this.commandId !== undefined) {
+      return `Failed to read the receipt of fork command ${this.commandId}.`;
+    }
     return this.afterSequence === undefined
       ? "Failed to read fork events."
       : `Failed to read fork events after sequence ${this.afterSequence}.`;
@@ -115,6 +120,10 @@ export class ForkEventStore extends Context.Service<
       readonly limit?: number;
     }) => Effect.Effect<ReadonlyArray<ForkStoredEvent>, ForkEventStoreReadError>;
     readonly latestSequence: Effect.Effect<number, ForkEventStoreReadError>;
+    /** The receipt of a committed command id, if any. */
+    readonly receipt: (
+      commandId: string,
+    ) => Effect.Effect<Option.Option<ForkCommandReceipt>, ForkEventStoreReadError>;
   }
 >()("t3/fork/persistence/ForkEventStore") {}
 
@@ -143,6 +152,12 @@ const make = Effect.gen(function* () {
     SELECT COALESCE(MAX(sequence), 0) AS sequence FROM fork_events
   `.pipe(Effect.map((rows) => rows[0]?.sequence ?? 0));
 
+  const selectReceipt = (commandId: string) => sql`
+    SELECT command_id AS "commandId", command_type AS "commandType",
+      accepted_at AS "acceptedAt", result_sequence AS "resultSequence"
+    FROM fork_command_receipts WHERE command_id = ${commandId}
+  `;
+
   // Runs inside commit's span and transaction; no span of its own. Store-owned SQL and schema
   // failures become ForkEventStoreWriteError where they happen, so `project`'s own errors (even
   // a SchemaError) reach the caller unchanged.
@@ -164,11 +179,7 @@ const make = Effect.gen(function* () {
         RETURNING command_id
       `);
     if (reserved.length === 0) {
-      const rows = yield* own(sql`
-          SELECT command_id AS "commandId", command_type AS "commandType",
-            accepted_at AS "acceptedAt", result_sequence AS "resultSequence"
-          FROM fork_command_receipts WHERE command_id = ${input.commandId}
-        `);
+      const rows = yield* own(selectReceipt(input.commandId));
       const receipt = yield* own(decodeReceiptRow(rows[0]));
       if (receipt.commandType !== input.commandType) {
         return yield* new ForkCommandIdConflictError({
@@ -283,7 +294,19 @@ const make = Effect.gen(function* () {
     Effect.withSpan("ForkEventStore.latestSequence"),
   );
 
-  return ForkEventStore.of({ commit, readAfter, latestSequence });
+  const receipt = Effect.fn("ForkEventStore.receipt")(function* (commandId: string) {
+    return yield* selectReceipt(commandId).pipe(
+      NodeSqliteClient.readOnly,
+      Effect.flatMap((rows) =>
+        rows.length === 0
+          ? Effect.succeed(Option.none<ForkCommandReceipt>())
+          : decodeReceiptRow(rows[0]).pipe(Effect.asSome),
+      ),
+      Effect.mapError((cause) => new ForkEventStoreReadError({ commandId, cause })),
+    );
+  });
+
+  return ForkEventStore.of({ commit, readAfter, latestSequence, receipt });
 });
 
 export const layer = Layer.effect(ForkEventStore, make);

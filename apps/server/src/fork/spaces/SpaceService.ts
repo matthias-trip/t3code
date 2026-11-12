@@ -1,11 +1,11 @@
 import type { ThreadId } from "@t3tools/contracts";
 import {
   SpaceCommandRejectedError,
+  SpaceServiceError,
   type Space,
   type SpaceCommand,
   type SpaceDispatchResult,
   type SpaceId,
-  type SpaceServiceError,
   type SpacesSnapshot,
   type SpacesStreamItem,
 } from "@t3tools/fork-spaces/contracts/space";
@@ -17,12 +17,13 @@ import {
   spacesStateFromSnapshot,
   type SpacesState,
 } from "@t3tools/fork-spaces/shared/spaces";
+import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
@@ -64,26 +65,55 @@ export interface SpacesView {
   readonly sequence: number;
 }
 
+/** Events a subscriber may lag behind before its stream fails and it must resubscribe. */
+const SUBSCRIBER_CAPACITY = 1024;
+
 /**
- * The read side of SpaceService over a view. Writers update `view` first and publish the new
- * events to `events` after, so a subscriber that subscribes, then reads the view, sees every
- * event exactly once (events at or below the snapshot's sequence are dropped).
+ * Reads over `view`, plus `publish` for its writer. Writers set `view`, then publish, so a
+ * subscriber sees each event once. Snapshots leave out threads `liveThreads` does not return.
  */
 export const makeSpaceReads = (
   view: Ref.Ref<SpacesView>,
-  events: PubSub.PubSub<SpacesStreamItem>,
+  liveThreads: (
+    threadIds: ReadonlyArray<ThreadId>,
+  ) => Effect.Effect<ReadonlySet<ThreadId>, SpaceServiceError>,
 ) => {
-  const snapshot = Ref.get(view).pipe(
-    Effect.map(({ state, sequence }) => spacesSnapshotFromState(state, sequence)),
-  );
+  const subscribers = new Set<Queue.Queue<SpacesStreamItem, SpaceServiceError>>();
+
+  // Never waits: a subscriber that falls behind is failed and dropped, not waited for.
+  const publish = (items: ReadonlyArray<SpacesStreamItem>) =>
+    Effect.sync(() => {
+      for (const queue of subscribers) {
+        if (Queue.offerAllUnsafe(queue, items).length === 0) continue;
+        subscribers.delete(queue);
+        Queue.failCauseUnsafe(
+          queue,
+          Cause.fail(new SpaceServiceError({ detail: "Spaces updates fell behind." })),
+        );
+      }
+    });
+
+  const snapshot = Effect.gen(function* () {
+    const { state, sequence } = yield* Ref.get(view);
+    const live = yield* liveThreads([...state.threadSpaces.keys()]);
+    const threadSpaces = new Map(
+      [...state.threadSpaces].filter(([threadId]) => live.has(threadId)),
+    );
+    return spacesSnapshotFromState({ ...state, threadSpaces }, sequence);
+  });
 
   const subscribe = Stream.unwrap(
     Effect.gen(function* () {
-      const subscription = yield* PubSub.subscribe(events);
+      const queue = yield* Effect.acquireRelease(
+        Queue.dropping<SpacesStreamItem, SpaceServiceError>(SUBSCRIBER_CAPACITY).pipe(
+          Effect.tap((queue) => Effect.sync(() => subscribers.add(queue))),
+        ),
+        (queue) => Effect.sync(() => subscribers.delete(queue)),
+      );
       const first = yield* snapshot;
       return Stream.succeed<SpacesStreamItem>({ type: "snapshot", snapshot: first }).pipe(
         Stream.concat(
-          Stream.fromSubscription(subscription).pipe(
+          Stream.fromQueue(queue).pipe(
             Stream.filter((item) => item.type !== "event" || item.sequence > first.sequence),
           ),
         ),
@@ -94,6 +124,8 @@ export const makeSpaceReads = (
   const getSpace = (spaceId: SpaceId) =>
     Ref.get(view).pipe(Effect.map(({ state }) => Option.fromNullishOr(state.spaces.get(spaceId))));
 
+  // No upstream thread check: turn context calls this on every turn, for a thread that is
+  // running and so exists. A deleted thread runs no turns.
   const spaceForThread = (threadId: ThreadId) =>
     Ref.get(view).pipe(
       Effect.map(({ state }) => {
@@ -113,14 +145,14 @@ export const makeSpaceReads = (
       ),
     );
 
-  return { snapshot, subscribe, getSpace, spaceForThread, listSpaces };
+  return { publish, reads: { snapshot, subscribe, getSpace, spaceForThread, listSpaces } };
 };
 
 /**
  * In-memory SpaceService for tests of code that depends on it (MCP tools, turn context). Uses
  * the shared decider and reducer, so it behaves like the real service except for persistence,
- * idempotency across restarts, and thread-existence checks (every thread id is accepted unless
- * listed in `missingThreadIds`).
+ * idempotency across restarts, and thread-existence checks (every thread id is accepted, and
+ * shown in snapshots, unless listed in `missingThreadIds`).
  */
 export const layerMemory = (options?: {
   readonly initial?: SpacesSnapshot;
@@ -137,13 +169,19 @@ export const layerMemory = (options?: {
             : spacesStateFromSnapshot(options.initial),
         sequence: options?.initial?.sequence ?? 0,
       });
-      const events = yield* PubSub.unbounded<SpacesStreamItem>();
+      const { publish, reads } = makeSpaceReads(state, (threadIds) =>
+        Effect.succeed(new Set(threadIds.filter((threadId) => !missing.has(threadId)))),
+      );
       const seen = new Map<string, SpaceDispatchResult>();
 
       const dispatch = Effect.fn("SpaceService.memory.dispatch")(function* (command: SpaceCommand) {
         const previous = seen.get(command.commandId);
         if (previous !== undefined) return previous;
-        if (command.type === "thread.space.set" && missing.has(command.threadId)) {
+        if (
+          command.type === "thread.space.set" &&
+          command.spaceId !== null &&
+          missing.has(command.threadId)
+        ) {
           return yield* new SpaceCommandRejectedError({
             commandId: command.commandId,
             reason: "thread_not_found",
@@ -168,12 +206,12 @@ export const layerMemory = (options?: {
         }
         // View first, then publish: see makeSpaceReads.
         yield* Ref.set(state, next);
-        yield* PubSub.publishAll(events, items);
+        yield* publish(items);
         const result = { sequence: next.sequence };
         seen.set(command.commandId, result);
         return result;
       });
 
-      return SpaceService.of({ dispatch, ...makeSpaceReads(state, events) });
+      return SpaceService.of({ dispatch, ...reads });
     }),
   );

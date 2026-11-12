@@ -13,6 +13,7 @@ import {
   spacesSnapshotFromState,
   spacesStateFromSnapshot,
 } from "@t3tools/fork-spaces/shared/spaces";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -51,6 +52,15 @@ const seedThread = (id: ThreadId, options?: { readonly deleted?: boolean }) =>
     `;
   });
 
+const deleteThread = (id: ThreadId) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    yield* sql`
+      UPDATE orchestration_v2_projection_threads
+      SET deleted_at = '2026-11-12T11:00:00.000Z' WHERE thread_id = ${id}
+    `;
+  });
+
 const dispatch = (command: SpaceCommand) => SpaceService.use((spaces) => spaces.dispatch(command));
 
 const create = (name: string, id: SpaceId = spaceId) =>
@@ -82,6 +92,8 @@ const spaceRows = Effect.gen(function* () {
     FROM fork_spaces ORDER BY space_id
   `;
 });
+
+const storageError = { _tag: "SpaceServiceError", detail: "Spaces could not be read or saved." };
 
 const projectRows = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -267,15 +279,26 @@ describe("SpaceService (persisted)", () => {
   it.effect("streams a snapshot, then each later event exactly once, during dispatches", () =>
     Effect.gen(function* () {
       const spaces = yield* SpaceService;
+      const before = 5;
       const total = 20;
-      const writer = yield* Effect.forEach(
-        Array.from({ length: total }, (_, index) => index),
-        (index) => create(`c${index}`, SpaceId.make(`space:${index}`)),
-      ).pipe(Effect.forkChild);
+      const createAt = (index: number) => create(`c${index}`, SpaceId.make(`space:${index}`));
+      const range = (from: number, to: number) =>
+        Array.from({ length: to - from }, (_, index) => from + index);
+
+      yield* Effect.forEach(range(0, before), createAt);
+      const subscribed = yield* Deferred.make<void>();
+      const writer = yield* Deferred.await(subscribed).pipe(
+        Effect.andThen(Effect.forEach(range(before, total), createAt)),
+        Effect.forkChild,
+      );
 
       const positionOf = (item: SpacesStreamItem) =>
         item.type === "snapshot" ? item.snapshot.sequence : item.sequence;
       const items = yield* spaces.subscribe.pipe(
+        // The snapshot is read after the subscription opens, so the writer starts after both.
+        Stream.tap((item) =>
+          item.type === "snapshot" ? Deferred.succeed(subscribed, undefined) : Effect.void,
+        ),
         Stream.takeUntil((item) => positionOf(item) === total),
         Stream.runCollect,
       );
@@ -284,12 +307,11 @@ describe("SpaceService (persisted)", () => {
       const [head, ...rest] = items;
       assert.strictEqual(head?.type, "snapshot");
       const snapshot = (head as Extract<SpacesStreamItem, { type: "snapshot" }>).snapshot;
+      assert.strictEqual(snapshot.sequence, before);
+      assert.isAbove(rest.length, 0);
       assert.deepStrictEqual(
         rest.map(positionOf),
-        Array.from(
-          { length: total - snapshot.sequence },
-          (_, index) => snapshot.sequence + index + 1,
-        ),
+        range(before, total).map((index) => index + 1),
       );
       let state = spacesStateFromSnapshot(snapshot);
       for (const item of rest) {
@@ -303,7 +325,68 @@ describe("SpaceService (persisted)", () => {
     }).pipe(Effect.provide(layerTest)),
   );
 
-  it.effect("reloads state from the projections after a restart", () =>
+  it.effect("fails a dispatch whose projection write fails and leaves state unchanged", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const spaces = yield* SpaceService;
+      yield* create("a");
+      const before = yield* spaces.snapshot;
+
+      yield* sql`DROP TABLE fork_space_projects`;
+      const error = yield* create("b", otherSpaceId).pipe(Effect.flip);
+      assert.deepStrictEqual({ _tag: error._tag, detail: error.detail }, storageError);
+      assert.deepStrictEqual(yield* spaces.snapshot, before);
+      assert.strictEqual(yield* eventCount, 1);
+
+      yield* sql`
+        CREATE TABLE fork_space_projects (
+          space_id TEXT NOT NULL, project_id TEXT NOT NULL, position INTEGER NOT NULL,
+          PRIMARY KEY (space_id, project_id)
+        )
+      `;
+      yield* create("b", otherSpaceId);
+      assert.isTrue(Option.isSome(yield* spaces.getSpace(otherSpaceId)));
+      assert.strictEqual(yield* eventCount, 2);
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("hides deleted threads, still lets them leave their space, and keeps retries", () =>
+    Effect.gen(function* () {
+      const spaces = yield* SpaceService;
+      yield* seedThread(threadId);
+      yield* create("a");
+      const move = {
+        type: "thread.space.set",
+        commandId: fixtureCommandId("move"),
+        threadId,
+        spaceId,
+      } as const;
+      const moved = yield* dispatch(move);
+
+      yield* deleteThread(threadId);
+      assert.deepStrictEqual((yield* spaces.snapshot).threadSpaces, []);
+      const [first] = yield* spaces.subscribe.pipe(Stream.take(1), Stream.runCollect);
+      assert.deepStrictEqual(
+        first?.type === "snapshot" ? first.snapshot.threadSpaces : undefined,
+        [],
+      );
+      // The membership is kept, in case the thread comes back.
+      assert.deepStrictEqual(yield* threadRows, [{ thread_id: threadId, space_id: spaceId }]);
+
+      // The thread check rejects the retry now; the receipt still returns the first result.
+      assert.deepStrictEqual(yield* dispatch(move), moved);
+
+      yield* dispatch({
+        type: "thread.space.set",
+        commandId: fixtureCommandId("out"),
+        threadId,
+        spaceId: null,
+      });
+      assert.deepStrictEqual(yield* threadRows, []);
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("reloads state from the events after a restart", () =>
     Effect.gen(function* () {
       yield* seedThread(threadId);
       const before = yield* Effect.gen(function* () {
@@ -341,6 +424,67 @@ describe("SpaceService (persisted)", () => {
 
       assert.strictEqual(before.sequence, 5);
       assert.deepStrictEqual(sortedSnapshot(after), sortedSnapshot(before));
+    }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+  );
+
+  it.effect("skips an event that does not decode and re-projects the rest at startup", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      yield* seedThread(threadId);
+      const before = yield* Effect.gen(function* () {
+        yield* create("a");
+        yield* create("b", otherSpaceId);
+        yield* dispatch({
+          type: "thread.space.set",
+          commandId: fixtureCommandId("move"),
+          threadId,
+          spaceId,
+        });
+        return yield* SpaceService.use((spaces) => spaces.snapshot);
+      }).pipe(Effect.provide(ForkLayer.layer));
+
+      yield* sql`
+        INSERT INTO fork_events (
+          stream_id, stream_version, event_type, payload_json, command_id, occurred_at
+        ) VALUES (
+          'space:space:broken', 1, 'space.created',
+          '{"type":"space.created","space":{"id":"space:broken"}}', NULL,
+          '2026-11-12T10:00:00.000Z'
+        )
+      `;
+      // Projection rows the events do not support, and one they do, missing.
+      yield* sql`DELETE FROM fork_spaces WHERE space_id = ${otherSpaceId}`;
+      yield* sql`INSERT INTO fork_thread_spaces VALUES ('thread:stale', ${spaceId})`;
+
+      const after = yield* SpaceService.use((spaces) => spaces.snapshot).pipe(
+        Effect.provide(ForkLayer.layer),
+      );
+      assert.deepStrictEqual(sortedSnapshot(after), {
+        ...sortedSnapshot(before),
+        sequence: before.sequence + 1,
+      });
+      assert.deepStrictEqual(
+        (yield* spaceRows).map((row) => row.space_id),
+        [otherSpaceId, spaceId],
+      );
+      assert.deepStrictEqual(yield* threadRows, [{ thread_id: threadId, space_id: spaceId }]);
+    }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+  );
+
+  it.effect("starts with spaces unavailable when the events cannot be read", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      yield* Effect.void.pipe(Effect.provide(ForkLayer.layer));
+      yield* sql`DROP TABLE fork_events`;
+
+      const errors = yield* Effect.gen(function* () {
+        const spaces = yield* SpaceService;
+        return [yield* spaces.snapshot.pipe(Effect.flip), yield* create("a").pipe(Effect.flip)];
+      }).pipe(Effect.provide(ForkLayer.layer));
+      assert.deepStrictEqual(
+        errors.map((error) => error._tag),
+        ["SpaceServiceError", "SpaceServiceError"],
+      );
     }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
   );
 });

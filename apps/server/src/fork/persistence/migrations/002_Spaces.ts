@@ -1,7 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/sql/SqlClient";
 
-/** Projections of space events. fork_events stays the record; these are rebuilt from it. */
+/**
+ * Projections of space events. fork_events stays the record: SpaceService truncates and
+ * re-projects these tables from the replayed events at every startup.
+ */
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
@@ -10,8 +13,8 @@ export default Effect.gen(function* () {
       space_id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       brief TEXT NOT NULL,
-      icon_json TEXT,
-      defaults_json TEXT NOT NULL,
+      icon_json TEXT CHECK (icon_json IS NULL OR json_valid(icon_json)),
+      defaults_json TEXT NOT NULL CHECK (json_valid(defaults_json)),
       pinned_at TEXT,
       archived_at TEXT,
       created_at TEXT NOT NULL,
