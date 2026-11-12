@@ -37,8 +37,11 @@ const SIGNING = `            provisioningProfile: macPasskeySigning.provisioning
               hardenedRuntime: true,
               entitlements: path.join(repoRoot, "fork/entitlements.mac.plist"),
               entitlementsInherit: path.join(repoRoot, "fork/entitlements.mac.plist"),
+              // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switches, read once per build
               ...(process.env.FORK_MAC_IDENTITY ? { identity: process.env.FORK_MAC_IDENTITY } : {}),
+              // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switches, read once per build
               ...(process.env.FORK_MAC_SIGN_TYPE === "development" ? { type: "development" } : {}),
+              // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switches, read once per build
               ...(process.env.FORK_MAC_NOTARIZE === "true" ? {} : { notarize: false }),
             }
           : {}),
@@ -141,7 +144,7 @@ export const PATCHES = [
     file: BUILD,
     find: "  buildConfig.publish = null;\n",
     replace:
-      '  buildConfig.publish = null;\n  const forkUpdateUrl = process.env.FORK_UPDATE_URL?.trim();\n  if (forkUpdateUrl) buildConfig.publish = [{ provider: "generic", url: forkUpdateUrl }];\n',
+      '  buildConfig.publish = null;\n  // @effect-diagnostics-next-line processEnvInEffect:off -- fork build switch\n  const forkUpdateUrl = process.env.FORK_UPDATE_URL?.trim();\n  if (forkUpdateUrl) buildConfig.publish = [{ provider: "generic", url: forkUpdateUrl }];\n',
     done: "forkUpdateUrl",
   },
   {
