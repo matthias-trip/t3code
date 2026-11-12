@@ -2,6 +2,13 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // Exported types are part of our contracts even before they have consumers.
   "rules": { "types": "off", "nsTypes": "off" },
+  // fork: run only by upstream workflows, which the fork removes.
+  "ignoreFiles": [
+    ".github/scripts/mirror-play-apk.cjs",
+    "apps/web/scripts/verify-built-boot.ts",
+    "scripts/resolve-nightly-release.ts",
+    "scripts/smoke-cli-archive.ts",
+  ],
   // These executables are supplied by the OS or installed separately from npm.
   "ignoreBinaries": ["eas", "file", "mkfifo", "pkill", "pkg-config", "plutil", "sips"],
   "workspaces": {

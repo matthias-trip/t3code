@@ -418,6 +418,7 @@ export const make = Effect.gen(function* () {
 
   const installOnFirstLaunch: DesktopCliCommand["Service"]["installOnFirstLaunch"] = Effect.gen(
     function* () {
+      // @effect-diagnostics-next-line processEnvInEffect:off -- same launch-check override as DesktopUserData
       if (process.env.FORK_PROFILE_DIR?.trim()) return;
       if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;
       // Mark first so a failed or removed install is never retried behind the user's back.

@@ -79,7 +79,8 @@ export const PATCHES = [
     find: ': { current: "t3code-v2", legacy:',
     // The override lets the launch check run while the installed app is open;
     // one profile admits one running instance.
-    replace: `: { current: process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}", legacy:`,
+    replace: `// @effect-diagnostics-next-line processEnvInEffect:off -- read once at launch, before any Config layer exists
+      : { current: process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}", legacy:`,
     done: `process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}"`,
   },
   {
@@ -87,7 +88,7 @@ export const PATCHES = [
     file: "apps/desktop/src/app/DesktopCliCommand.ts",
     find: "if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;",
     replace:
-      "if (process.env.FORK_PROFILE_DIR?.trim()) return;\n      if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;",
+      "// @effect-diagnostics-next-line processEnvInEffect:off -- same launch-check override as DesktopUserData\n      if (process.env.FORK_PROFILE_DIR?.trim()) return;\n      if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;",
     done: "if (process.env.FORK_PROFILE_DIR?.trim()) return;",
   },
   {
@@ -147,8 +148,7 @@ export const PATCHES = [
     why: "an unofficial build must not report usage to upstream unless asked to",
     file: "apps/server/src/telemetry/AnalyticsService.ts",
     find: 'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(true)),',
-    replace:
-      'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),',
+    replace: 'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),',
     done: 'enabled: Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false)),',
   },
   {
@@ -173,13 +173,21 @@ export const PATCHES = [
     done: '<span className="shrink-0 font-semibold">Claude</span>',
   },
   {
-    // spike: remove at P0.7
-    why: "spike: a seam marker proving fork seams replay onto upstream",
-    file: "apps/server/src/server.ts",
-    find: "export const runServer = Layer.launch(layerMakeServer);",
-    replace:
-      "// fork-seam: spike (remove at P0.7)\nexport const runServer = Layer.launch(layerMakeServer);",
-    done: "// fork-seam: spike (remove at P0.7)",
+    // Removing .github/workflows leaves these scripts without a caller.
+    why: "knip must not flag scripts only upstream's removed workflows run",
+    file: "knip.jsonc",
+    find: "  // These executables are supplied by the OS",
+    replace: [
+      "  // fork: run only by upstream workflows, which the fork removes.",
+      '  "ignoreFiles": [',
+      '    ".github/scripts/mirror-play-apk.cjs",',
+      '    "apps/web/scripts/verify-built-boot.ts",',
+      '    "scripts/resolve-nightly-release.ts",',
+      '    "scripts/smoke-cli-archive.ts",',
+      "  ],",
+      "  // These executables are supplied by the OS",
+    ].join("\n"),
+    done: "// fork: run only by upstream workflows, which the fork removes.",
   },
 ];
 
