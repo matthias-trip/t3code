@@ -206,11 +206,17 @@ export const PATCHES = [
   {
     why: "the browser profile is not shared with T3 Code's desktop app",
     file: "apps/desktop/src/app/DesktopUserData.ts",
-    find: ': { current: "t3code-v2", legacy:',
+    find: '      : { current: "t3code-v2", legacy: "T3 Code (Alpha)" };',
     // The override lets the launch check run while the installed app is open;
-    // one profile admits one running instance.
-    replace: `// @effect-diagnostics-next-line processEnvInEffect:off -- read once at launch, before any Config layer exists
-      : { current: process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}", legacy:`,
+    // one profile admits one running instance. Written multi-line so the
+    // formatter keeps the suppression on the line it applies to.
+    replace: [
+      "      : {",
+      "          // @effect-diagnostics-next-line processEnvInEffect:off -- read once at launch, before any Config layer exists",
+      `          current: process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}",`,
+      '          legacy: "T3 Code (Alpha)",',
+      "        };",
+    ].join("\n"),
     done: `process.env.FORK_PROFILE_DIR?.trim() || "${PROFILE_DIR}"`,
   },
   {
