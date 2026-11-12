@@ -59,7 +59,7 @@ const forkDependency = (file) => ({
 
 const SEAMS = [
   forkDependency("apps/server/package.json"),
-  forkDependency("apps/web/package.json"),
+  forkDependency("packages/client-runtime/package.json"),
   {
     why: "knip checks the fork overlay's exports like upstream's packages",
     file: "package.json",
@@ -84,6 +84,93 @@ const SEAMS = [
       "const layerPersistence = ForkLayer.layer.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));",
     ].join("\n"),
     done: "const layerPersistence = ForkLayer.layer.pipe(",
+  },
+  {
+    why: "client-runtime exposes the fork client modules to web and mobile",
+    file: "packages/client-runtime/package.json",
+    find: [
+      '    "./environment": {',
+      '      "types": "./src/environment/index.ts",',
+      '      "default": "./src/environment/index.ts"',
+      "    },",
+      "",
+    ].join("\n"),
+    replace: [
+      '    "./environment": {',
+      '      "types": "./src/environment/index.ts",',
+      '      "default": "./src/environment/index.ts"',
+      "    },",
+      '    "./fork/*": {',
+      '      "types": "./src/fork/*.ts",',
+      '      "default": "./src/fork/*.ts"',
+      "    },",
+      "",
+    ].join("\n"),
+    done: '"./fork/*": {',
+  },
+  {
+    why: "the server serves the fork RPC group on the environment socket",
+    file: "apps/server/src/ws.ts",
+    find: 'import * as RpcAuthorization from "./auth/RpcAuthorization.ts";\n',
+    replace:
+      'import * as RpcAuthorization from "./auth/RpcAuthorization.ts";\nimport { ForkRpcHandlers, withForkRpcGroup } from "./fork/rpc/ForkRpcHandlers.ts"; // fork-seam\n',
+    done: 'from "./fork/rpc/ForkRpcHandlers.ts"; // fork-seam',
+  },
+  {
+    why: "the server serves the fork RPC group on the environment socket",
+    file: "apps/server/src/ws.ts",
+    find: "yield* RpcServer.make(ServerWsRpcGroup, WS_RPC_SERVER_OPTIONS).pipe(",
+    replace:
+      "yield* RpcServer.make(withForkRpcGroup(ServerWsRpcGroup), WS_RPC_SERVER_OPTIONS).pipe(",
+    done: "withForkRpcGroup(ServerWsRpcGroup)",
+  },
+  {
+    why: "the server serves the fork RPC group on the environment socket",
+    file: "apps/server/src/ws.ts",
+    find: "              readSettingsClient(url.value),\n            ).pipe(\n",
+    replace:
+      "              readSettingsClient(url.value),\n            ).pipe(\n              Layer.merge(ForkRpcHandlers), // fork-seam\n",
+    done: "Layer.merge(ForkRpcHandlers), // fork-seam",
+  },
+  {
+    why: "fork RPCs declare their own scopes; upstream methods keep theirs",
+    file: "apps/server/src/auth/RpcAuthorization.ts",
+    find: '} from "@t3tools/contracts";\n',
+    replace:
+      '} from "@t3tools/contracts";\nimport { FORK_RPC_REQUIRED_SCOPES, type ForkRpcMethod } from "@t3tools/fork-spaces/contracts/rpc"; // fork-seam\n',
+    done: 'from "@t3tools/fork-spaces/contracts/rpc"; // fork-seam',
+  },
+  {
+    why: "fork RPCs declare their own scopes; upstream methods keep theirs",
+    file: "apps/server/src/auth/RpcAuthorization.ts",
+    find: "): ReadonlyArray<AuthEnvironmentScope> => {\n  if (method === WS_METHODS.serverRetryResourceTelemetry) {",
+    replace: [
+      "): ReadonlyArray<AuthEnvironmentScope> => {",
+      "  // fork-seam: fork RPCs share this socket and declare their scopes in @t3tools/fork-spaces.",
+      "  if (Object.hasOwn(FORK_RPC_REQUIRED_SCOPES, method)) {",
+      "    return [FORK_RPC_REQUIRED_SCOPES[method as ForkRpcMethod]];",
+      "  }",
+      "  if (method === WS_METHODS.serverRetryResourceTelemetry) {",
+    ].join("\n"),
+    done: "Object.hasOwn(FORK_RPC_REQUIRED_SCOPES, method)",
+  },
+  {
+    why: "clients speak the fork RPC group on the same socket; upstream servers reject its tags",
+    file: "packages/client-runtime/src/rpc/protocol.ts",
+    find: 'import { WsRpcGroup } from "@t3tools/contracts";\n',
+    replace:
+      'import { WsRpcGroup } from "@t3tools/contracts";\nimport { ForkRpcGroup } from "@t3tools/fork-spaces/contracts/rpc"; // fork-seam\n',
+    done: 'import { ForkRpcGroup } from "@t3tools/fork-spaces/contracts/rpc";',
+  },
+  {
+    why: "clients speak the fork RPC group on the same socket; upstream servers reject its tags",
+    file: "packages/client-runtime/src/rpc/protocol.ts",
+    find: "export const makeWsRpcProtocolClient = RpcClient.make(WsRpcGroup);",
+    replace: [
+      "// fork-seam: the fork RPC group shares the environment socket; upstream servers reject its tags.",
+      "export const makeWsRpcProtocolClient = RpcClient.make(WsRpcGroup.merge(ForkRpcGroup));",
+    ].join("\n"),
+    done: "RpcClient.make(WsRpcGroup.merge(ForkRpcGroup))",
   },
 ];
 
