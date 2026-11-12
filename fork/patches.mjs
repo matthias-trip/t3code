@@ -172,6 +172,15 @@ export const PATCHES = [
     replace: '<span className="shrink-0 font-semibold">Claude</span>',
     done: '<span className="shrink-0 font-semibold">Claude</span>',
   },
+  {
+    // spike: remove at P0.7
+    why: "spike: a seam marker proving fork seams replay onto upstream",
+    file: "apps/server/src/server.ts",
+    find: "export const runServer = Layer.launch(layerMakeServer);",
+    replace:
+      "// fork-seam: spike (remove at P0.7)\nexport const runServer = Layer.launch(layerMakeServer);",
+    done: "// fork-seam: spike (remove at P0.7)",
+  },
 ];
 
 // The desktop app's terminal command. Upstream calls it `t3`, which would

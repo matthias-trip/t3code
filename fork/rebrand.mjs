@@ -75,6 +75,10 @@ function rewrite(text, rules) {
 
 const stats = { files: 0, changed: 0, patched: 0 };
 const failures = [];
+// Every edit is staged here and written only once all patches have found
+// their anchors, so a failed run leaves the tree exactly as it was.
+const staged = new Map();
+const read = (absolute) => staged.get(absolute) ?? fs.readFileSync(absolute, "utf8");
 
 for (const file of git("ls-files", "-z").split("\0")) {
   const rules = rulesFor(file);
@@ -88,7 +92,7 @@ for (const file of git("ls-files", "-z").split("\0")) {
   const before = buffer.toString("utf8");
   const after = rewrite(before, rules);
   if (after !== before) {
-    fs.writeFileSync(absolute, after);
+    staged.set(absolute, after);
     stats.changed += 1;
   }
 }
@@ -106,7 +110,7 @@ for (const file of CLI.files) {
     failures.push(`${file}: file is missing (command name)`);
     continue;
   }
-  const before = fs.readFileSync(absolute, "utf8");
+  const before = read(absolute);
   const after = before
     .replace(/"t3(\.cmd|\.exe)?"/g, `"${CLI.name}$1"`)
     .replace(/`t3`/g, `\`${CLI.name}\``)
@@ -117,7 +121,7 @@ for (const file of CLI.files) {
   if (after === before && !before.includes(CLI.name)) {
     failures.push(`${file}: no command name found (command name)`);
   }
-  fs.writeFileSync(absolute, after);
+  staged.set(absolute, after);
 }
 for (const patch of PATCHES) {
   const absolute = path.join(root, patch.file);
@@ -125,7 +129,7 @@ for (const patch of PATCHES) {
     failures.push(`${patch.file}: file is missing (${patch.why})`);
     continue;
   }
-  const before = fs.readFileSync(absolute, "utf8");
+  const before = read(absolute);
   if (before.includes(patch.done)) continue;
   const found =
     typeof patch.find === "string" ? before.includes(patch.find) : patch.find.test(before);
@@ -133,7 +137,7 @@ for (const patch of PATCHES) {
     failures.push(`${patch.file}: anchor not found (${patch.why})`);
     continue;
   }
-  fs.writeFileSync(
+  staged.set(
     absolute,
     typeof patch.find === "string"
       ? before.replaceAll(patch.find, patch.replace)
@@ -141,14 +145,11 @@ for (const patch of PATCHES) {
   );
   stats.patched += 1;
 }
-for (const [target, asset] of Object.entries(ASSETS)) {
+for (const target of Object.keys(ASSETS)) {
   if (!fs.existsSync(path.join(root, target))) {
     failures.push(`${target}: file is missing (icon replacement)`);
-    continue;
   }
-  fs.copyFileSync(path.join(import.meta.dirname, "assets", asset), path.join(root, target));
 }
-for (const entry of REMOVE) fs.rmSync(path.join(root, entry), { recursive: true, force: true });
 
 // A release tag's manifests still carry the previous version; upstream's
 // release job aligns them before building, and so must this fork.
@@ -160,19 +161,29 @@ if (releaseVersion) {
       failures.push(`${file}/package.json: file is missing (release version)`);
       continue;
     }
-    const before = fs.readFileSync(manifest, "utf8");
+    const before = read(manifest);
     const after = before.replace(/^(  "version": ")[^"]*(")/m, `$1${releaseVersion}$2`);
     if (!after.includes(`"version": "${releaseVersion}"`)) {
       failures.push(`${file}/package.json: no version field (release version)`);
     }
-    fs.writeFileSync(manifest, after);
+    staged.set(manifest, after);
   }
 }
+
+if (failures.length > 0) {
+  console.error(
+    `rebrand: ${failures.length} patch(es) no longer apply, nothing written:\n  ${failures.join("\n  ")}`,
+  );
+  process.exit(1);
+}
+for (const [absolute, text] of staged) {
+  if (fs.readFileSync(absolute, "utf8") !== text) fs.writeFileSync(absolute, text);
+}
+for (const [target, asset] of Object.entries(ASSETS)) {
+  fs.copyFileSync(path.join(import.meta.dirname, "assets", asset), path.join(root, target));
+}
+for (const entry of REMOVE) fs.rmSync(path.join(root, entry), { recursive: true, force: true });
 
 console.log(
   `rebrand: ${stats.changed}/${stats.files} files rewritten, ${stats.patched} patches applied`,
 );
-if (failures.length > 0) {
-  console.error(`rebrand: ${failures.length} patch(es) no longer apply:\n  ${failures.join("\n  ")}`);
-  process.exit(1);
-}
