@@ -174,6 +174,61 @@ const SEAMS = [
   },
 ];
 
+// Upstream tests that follow a rename above. Their assertions stay as they are.
+const TESTS = [
+  {
+    why: "the passkey signing test expects this fork's bundle ID",
+    file: "scripts/build-desktop-artifact.test.ts",
+    find: '      appId: "com.t3tools.t3code",\n      teamId: "ABC1234567",\n      rpDomains:',
+    replace: `      appId: "${BUNDLE_ID}",\n      teamId: "ABC1234567",\n      rpDomains:`,
+    done: `      appId: "${BUNDLE_ID}",`,
+  },
+  {
+    why: "the passkey entitlements test expects this fork's bundle ID",
+    file: "scripts/build-desktop-artifact.test.ts",
+    find: '"<string>ABC1234567.com.t3tools.t3code</string>"',
+    replace: `"<string>ABC1234567.${BUNDLE_ID}</string>"`,
+    done: `"<string>ABC1234567.${BUNDLE_ID}</string>"`,
+  },
+  {
+    why: "the browser profile test expects this fork's profile directory",
+    file: "apps/desktop/src/app/DesktopUserData.test.ts",
+    find: 'const destination = path.join(directory, "t3code-v2");',
+    replace: `const destination = path.join(directory, "${PROFILE_DIR}");`,
+    done: `const destination = path.join(directory, "${PROFILE_DIR}");`,
+  },
+  {
+    why: "the command test leaves a launcher under the fork's command name",
+    file: "apps/desktop/src/app/DesktopCliCommand.test.ts",
+    find: '"userdata/desktop-settings.json", "bin/t3"]',
+    replace: '"userdata/desktop-settings.json", "bin/claude-code-app"]',
+    done: '"bin/claude-code-app"]',
+  },
+  {
+    why: "the command test strips the fork's Windows launcher name",
+    file: "apps/desktop/src/app/DesktopCliCommand.test.ts",
+    find: '.replace(/[\\\\/]t3\\.cmd$/, "")',
+    replace: '.replace(/[\\\\/]claude-code-app\\.cmd$/, "")',
+    done: "claude-code-app\\.cmd$/",
+  },
+  {
+    why: "peer tests find the sessions linking creates by this fork's label",
+    file: "apps/server/src/peer/PeerLinks.testkit.ts",
+    find: 'session.client.label?.startsWith("T3 Code · ")',
+    replace: 'session.client.label?.startsWith("Claude Code · ")',
+    done: 'session.client.label?.startsWith("Claude Code · ")',
+  },
+  {
+    // Not a rename: macOS temp directories sit behind the /var symlink, and
+    // the code under test resolves real paths.
+    why: "npm ownership tests compare real paths on macOS",
+    file: "apps/server/src/cli/invocation.test.ts",
+    find: "const root = yield* fs.makeTempDirectoryScoped();",
+    replace: "const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());",
+    done: "fs.realPath(yield* fs.makeTempDirectoryScoped())",
+  },
+];
+
 export const PATCHES = [
   {
     why: "the bundle ID belongs to this fork",
@@ -319,6 +374,7 @@ export const PATCHES = [
     ].join("\n"),
     done: "// fork: run only by upstream workflows, which the fork removes.",
   },
+  ...TESTS,
   ...SEAMS,
 ];
 
@@ -331,6 +387,7 @@ export const CLI = {
   // Instructions for installing T3 Code's own CLI on another computer keep `t3`.
   files: [
     "apps/desktop/src/app/DesktopCliCommand.ts",
+    "apps/desktop/src/app/DesktopCliCommand.test.ts",
     "apps/desktop/src/app/DesktopCliShim.ts",
     "apps/web/src/components/settings/CliCommandSettingsRow.tsx",
     "apps/web/src/components/settings/settingsSearch.ts",

@@ -35,7 +35,15 @@ const AGENT_FACING = [
   /htmlRender/,
   /testkit/,
 ];
-const NEVER = [/\/fixtures\//, /\.snap$/];
+const NEVER = [
+  /\/fixtures\//,
+  /\.snap$/,
+  // Profile directories on disk, including earlier upstream versions' read
+  // for migration. These files hold no interface text.
+  /^apps\/desktop\/src\/app\/(?:DesktopUserData|DesktopLegacyLocalStorage)(?:\.test)?\.ts$/,
+  // Thread titles a user typed, ranked against the query "t3co".
+  /^packages\/shared\/src\/paletteSearch\.test\.ts$/,
+];
 
 function rulesFor(file) {
   if (NEVER.some((pattern) => pattern.test(file))) return null;
@@ -56,8 +64,6 @@ const PROTECTED = [
   /[A-Za-z0-9.-]*t3\.(?:codes|chat|gg)\b[^\s"'`)]*/g,
   /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+[^\s"'`)]*/g,
   /T3[ -]?Chat/gi,
-  // Profile directories of earlier upstream versions, read for migration.
-  /(?:legacy: |PROFILE_NAMES = \[)"T3 Code \((?:Alpha|Dev)\)"/g,
 ];
 
 const RULES = [
