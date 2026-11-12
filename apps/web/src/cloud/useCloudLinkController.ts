@@ -70,7 +70,8 @@ export function useCloudLinkController(environmentId: EnvironmentId | null) {
   const [tunnelLimit, setTunnelLimit] = useState<number | null>(null);
 
   const reportUpdateFailure = (cause: unknown, reason?: string) => {
-    const message = cause instanceof Error ? cause.message : "Could not update Claude Code Connect access.";
+    const message =
+      cause instanceof Error ? cause.message : "Could not update Claude Code Connect access.";
     const traceId = findErrorTraceId(cause);
     console.error("[t3-connect] Could not update Claude Code Connect", { message, traceId, cause });
     setOperationError(traceId ? `${message} Trace ID: ${traceId}` : message);
@@ -117,7 +118,9 @@ export function useCloudLinkController(environmentId: EnvironmentId | null) {
         !readEnvironmentScope(environmentId, AuthRelayWriteScope)
       ) {
         reportUpdateFailure(
-          new Error("This connection needs permission to view and manage Claude Code Connect settings."),
+          new Error(
+            "This connection needs permission to view and manage Claude Code Connect settings.",
+          ),
         );
         return false;
       }
@@ -126,7 +129,9 @@ export function useCloudLinkController(environmentId: EnvironmentId | null) {
     const readLinkState = () => {
       const state = readCachedCloudLinkState(target);
       if (state === null) {
-        reportUpdateFailure(new Error("Wait until the current Claude Code Connect settings can be read."));
+        reportUpdateFailure(
+          new Error("Wait until the current Claude Code Connect settings can be read."),
+        );
       }
       return state;
     };

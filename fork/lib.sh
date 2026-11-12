@@ -64,6 +64,28 @@ setup_merge_drivers() {
   done
 }
 
+# The rename makes some lines longer than the formatter allows, so the vendor
+# tree is formatted with this checkout's formatter. Formatting there, not after
+# the merge, keeps claude-code and the vendor branch textually identical.
+format_rewritten() {
+  local tree="$1"
+  [[ -x "$REPO/node_modules/.bin/vp" ]] || {
+    echo "rebrand: no installed formatter in $REPO; run pnpm install first" >&2
+    return 1
+  }
+  local node status=0
+  node="$(jq -r '.engines.node' "$REPO/package.json")"
+  ln -s "$REPO/node_modules" "$tree/node_modules"
+  # One call with every file reports no match, so pass them in chunks.
+  if ! git -C "$tree" diff --name-only -z --diff-filter=M -- . ':!fork' |
+    (cd "$tree" && xargs -0 -n 40 mise exec "node@$node" -- "$REPO/node_modules/.bin/vp" fmt \
+      --no-error-on-unmatched-pattern >/dev/null); then
+    status=1
+  fi
+  rm "$tree/node_modules"
+  return $status
+}
+
 # Rebrands upstream <tag> with the fork/ committed at HEAD and prints the
 # resulting tree id. The rebrand runs from a copy, so the vendor tree holds
 # only upstream files.
@@ -73,6 +95,7 @@ rebrand_tree() {
   git -C "$REPO" archive HEAD fork | tar -x -C "$work"
   git -C "$REPO" worktree add --quiet --detach "$work/tree" "$tag"
   if node "$work/fork/rebrand.mjs" "$work/tree" "${tag#v}" >&2; then
+    format_rewritten "$work/tree" >&2
     git -C "$work/tree" add -A
     tree="$(git -C "$work/tree" write-tree)"
   fi

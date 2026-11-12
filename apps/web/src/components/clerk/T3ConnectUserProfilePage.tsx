@@ -87,8 +87,9 @@ function T3ConnectEnvironmentRow(props: {
                 “{environment.label}” will be removed from this account.
               </p>
               <p className="mt-4 max-w-xl text-xs leading-4.5 text-muted-foreground">
-                Claude Code Connect access will be revoked, any managed tunnel will be removed, and a host
-                space will become available. Local connections on your devices are not changed.
+                Claude Code Connect access will be revoked, any managed tunnel will be removed, and
+                a host space will become available. Local connections on your devices are not
+                changed.
               </p>
               <div className="mt-4 flex justify-end gap-2">
                 <Button

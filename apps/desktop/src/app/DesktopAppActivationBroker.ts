@@ -102,7 +102,11 @@ export class DesktopAppActivationBroker {
 
   cancel(requestId: string): void {
     this.#settle(
-      failure(requestId, "renderer-unavailable", "The command closed before Claude Code was ready."),
+      failure(
+        requestId,
+        "renderer-unavailable",
+        "The command closed before Claude Code was ready.",
+      ),
     );
   }
 

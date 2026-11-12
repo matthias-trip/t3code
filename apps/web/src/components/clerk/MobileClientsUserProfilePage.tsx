@@ -94,8 +94,8 @@ function EmptyMobileClients() {
       <EmptyHeader>
         <EmptyTitle>No mobile clients</EmptyTitle>
         <EmptyDescription>
-          Install Claude Code on your phone and sign in to Claude Code Connect to get push notifications and Live
-          Activities.
+          Install Claude Code on your phone and sign in to Claude Code Connect to get push
+          notifications and Live Activities.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

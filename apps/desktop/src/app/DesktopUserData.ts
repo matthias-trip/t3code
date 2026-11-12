@@ -41,8 +41,11 @@ export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPa
     const path = yield* Path.Path;
     const names = input.isDevelopment
       ? { current: "t3code-dev", legacy: "T3 Code (Dev)" }
-      // @effect-diagnostics-next-line processEnvInEffect:off -- read once at launch, before any Config layer exists
-      : { current: process.env.FORK_PROFILE_DIR?.trim() || "claude-code-app", legacy: "T3 Code (Alpha)" };
+      : // @effect-diagnostics-next-line processEnvInEffect:off -- read once at launch, before any Config layer exists
+        {
+          current: process.env.FORK_PROFILE_DIR?.trim() || "claude-code-app",
+          legacy: "T3 Code (Alpha)",
+        };
     const destinationPath = path.join(input.appDataDirectory, names.current);
     const legacyPath = path.join(input.appDataDirectory, names.legacy);
     const inspect = (resourcePath: string) =>

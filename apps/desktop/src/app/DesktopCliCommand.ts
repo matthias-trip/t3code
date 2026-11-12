@@ -286,14 +286,16 @@ export const make = Effect.gen(function* () {
     Effect.provideService(FileSystem.FileSystem, fs),
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.fail(fail(`Could not set up the claude-code-app launcher at ${launcher}.`)),
+        onNone: () =>
+          Effect.fail(fail(`Could not set up the claude-code-app launcher at ${launcher}.`)),
         onSome: () => Effect.void,
       }),
     ),
   );
 
   const install: DesktopCliCommand["Service"]["install"] = Effect.gen(function* () {
-    if (!environment.isPackaged) return yield* fail("The claude-code-app command needs an installed app.");
+    if (!environment.isPackaged)
+      return yield* fail("The claude-code-app command needs an installed app.");
     yield* ensureLauncher;
     if (windows) {
       // PATH would split the folder at the `;`, leaving two wrong entries behind.
@@ -408,7 +410,9 @@ export const make = Effect.gen(function* () {
     if (!(yield* folderOnPath(installed.value)) && !(yield* hasLine(setup))) {
       yield* fs.makeDirectory(path.dirname(setup.path), { recursive: true }).pipe(
         Effect.andThen(
-          fs.writeFileString(setup.path, `\n# Added by Claude Code\n${setup.line}\n`, { flag: "a" }),
+          fs.writeFileString(setup.path, `\n# Added by Claude Code\n${setup.line}\n`, {
+            flag: "a",
+          }),
         ),
         Effect.mapError(() => fail(`Could not add t3 to ${setup.file}.`)),
       );
@@ -424,7 +428,9 @@ export const make = Effect.gen(function* () {
       // Mark first so a failed or removed install is never retried behind the user's back.
       yield* fs.writeFileString(firstLaunchMarker, "");
       if (!freshInstall) {
-        return yield* logInfo("left the claude-code-app command to Settings on an existing install");
+        return yield* logInfo(
+          "left the claude-code-app command to Settings on an existing install",
+        );
       }
       // Another Claude Code home's app owns the existing link; only Install in Settings may take it over.
       const existing = Option.getOrUndefined(yield* installedAt);
@@ -439,12 +445,17 @@ export const make = Effect.gen(function* () {
       // A t3 that is not ours in these folders, even off PATH, means the user has one already. On
       // Windows the app never writes there, so any t3 there is someone else's.
       for (const directory of userCandidates(environment.homeDirectory)) {
-        for (const name of windows ? ["claude-code-app.cmd", "claude-code-app.exe"] : ["claude-code-app"]) {
+        for (const name of windows
+          ? ["claude-code-app.cmd", "claude-code-app.exe"]
+          : ["claude-code-app"]) {
           const other = path.join(directory, name);
           const present =
             (yield* exists(other)) || Option.isSome(yield* fs.readLink(other).pipe(Effect.option));
           if (present && (windows || !(yield* isOurLink(other)))) {
-            return yield* logInfo("left the claude-code-app command to Settings beside another claude-code-app", { other });
+            return yield* logInfo(
+              "left the claude-code-app command to Settings beside another claude-code-app",
+              { other },
+            );
           }
         }
       }

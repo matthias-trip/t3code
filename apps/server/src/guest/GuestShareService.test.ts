@@ -317,25 +317,27 @@ it.effect("refuses guest requests once Claude Code Connect no longer serves the 
   }).pipe(Effect.provide(layerTest)),
 );
 
-it.effect("closes an open guest stream when Claude Code Connect stops serving the link's host", () =>
-  Effect.gen(function* () {
-    const { guestShares, credential } = yield* shareThread;
-    const { token: session } = yield* guestShares.redeem({ credential, name: "Sam" });
-    const collecting = yield* Stream.runCollect(yield* guestShares.stream(session)).pipe(
-      Effect.forkChild,
-    );
-    yield* Ref.set(hostname, null);
-    yield* TestClock.adjust("30 seconds");
-    // No `ended`: the browser reconnects, and the host check refuses it while Connect is gone.
-    const received = Array.from(yield* Fiber.join(collecting));
-    assert.deepEqual(
-      received.map((event) => (event.type === "thread" ? event.item.kind : event.type)),
-      ["view", "snapshot"],
-    );
-    assert.isTrue(Exit.isFailure(yield* Effect.exit(guestShares.stream(session))));
-    yield* Ref.set(hostname, "env.t3.test");
-    assert.isTrue(Exit.isSuccess(yield* Effect.exit(guestShares.stream(session))));
-  }).pipe(Effect.provide(layerTest)),
+it.effect(
+  "closes an open guest stream when Claude Code Connect stops serving the link's host",
+  () =>
+    Effect.gen(function* () {
+      const { guestShares, credential } = yield* shareThread;
+      const { token: session } = yield* guestShares.redeem({ credential, name: "Sam" });
+      const collecting = yield* Stream.runCollect(yield* guestShares.stream(session)).pipe(
+        Effect.forkChild,
+      );
+      yield* Ref.set(hostname, null);
+      yield* TestClock.adjust("30 seconds");
+      // No `ended`: the browser reconnects, and the host check refuses it while Connect is gone.
+      const received = Array.from(yield* Fiber.join(collecting));
+      assert.deepEqual(
+        received.map((event) => (event.type === "thread" ? event.item.kind : event.type)),
+        ["view", "snapshot"],
+      );
+      assert.isTrue(Exit.isFailure(yield* Effect.exit(guestShares.stream(session))));
+      yield* Ref.set(hostname, "env.t3.test");
+      assert.isTrue(Exit.isSuccess(yield* Effect.exit(guestShares.stream(session))));
+    }).pipe(Effect.provide(layerTest)),
 );
 
 it.effect("refuses new links and every guest request while the beta is off", () =>

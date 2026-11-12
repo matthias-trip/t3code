@@ -2151,26 +2151,28 @@ describe("EnvironmentRegistry routes", () => {
       }),
   );
 
-  it.effect("signing out of Claude Code Connect keeps an environment that still has a LAN route", () =>
-    Effect.gen(function* () {
-      const harness = yield* makeHarness(
-        [LAN_TARGET, RELAY_TARGET, SECOND_RELAY_TARGET],
-        [LAN_PROFILE],
-        [[LAN_TARGET.connectionId, BEARER_CREDENTIAL]],
-      );
-      yield* Effect.gen(function* () {
-        const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
-        yield* registry.removeRelayEnvironments();
+  it.effect(
+    "signing out of Claude Code Connect keeps an environment that still has a LAN route",
+    () =>
+      Effect.gen(function* () {
+        const harness = yield* makeHarness(
+          [LAN_TARGET, RELAY_TARGET, SECOND_RELAY_TARGET],
+          [LAN_PROFILE],
+          [[LAN_TARGET.connectionId, BEARER_CREDENTIAL]],
+        );
+        yield* Effect.gen(function* () {
+          const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+          yield* registry.removeRelayEnvironments();
 
-        const targets = yield* Ref.get(harness.storedTargets);
-        expect(routesOf(targets, LAN_TARGET.environmentId)).toEqual([LAN_TARGET]);
-        expect(hasRoutes(targets, SECOND_RELAY_TARGET.environmentId)).toBe(false);
-        expect(yield* Ref.get(harness.cacheClears)).toEqual([SECOND_RELAY_TARGET.environmentId]);
-        expect(
-          (yield* SubscriptionRef.get(registry.entries)).get(LAN_TARGET.environmentId)?.target,
-        ).toEqual(LAN_TARGET);
-      }).pipe(Effect.provide(harness.layer), Effect.scoped);
-    }),
+          const targets = yield* Ref.get(harness.storedTargets);
+          expect(routesOf(targets, LAN_TARGET.environmentId)).toEqual([LAN_TARGET]);
+          expect(hasRoutes(targets, SECOND_RELAY_TARGET.environmentId)).toBe(false);
+          expect(yield* Ref.get(harness.cacheClears)).toEqual([SECOND_RELAY_TARGET.environmentId]);
+          expect(
+            (yield* SubscriptionRef.get(registry.entries)).get(LAN_TARGET.environmentId)?.target,
+          ).toEqual(LAN_TARGET);
+        }).pipe(Effect.provide(harness.layer), Effect.scoped);
+      }),
   );
 
   it.effect("reorders routes and rejects an order that drops one", () =>

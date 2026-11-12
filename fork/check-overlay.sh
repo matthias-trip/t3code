@@ -24,7 +24,19 @@ trap cleanup EXIT
 
 log "Rebranding $tag"
 tree="$(rebrand_tree "$tag")" || { log "FAILED: rebrand no longer applies to $tag"; exit 1; }
-vendor="$(git commit-tree "$tree" -p "$tag^{commit}" -m "Rebrand upstream $tag (check-overlay)")"
+# Parent it like sync.sh does, so the merge base is the previous vendor commit.
+previous=""
+for ref in "refs/heads/$VENDOR_BRANCH" "refs/remotes/origin/$VENDOR_BRANCH"; do
+  if git rev-parse --quiet --verify "$ref" >/dev/null; then previous="$ref" && break; fi
+done
+parents=()
+if [[ -n "$previous" ]]; then
+  parents+=(-p "$previous")
+  git merge-base --is-ancestor "$tag^{commit}" "$previous" || parents+=(-p "$tag^{commit}")
+else
+  parents+=(-p "$tag^{commit}")
+fi
+vendor="$(git commit-tree "$tree" "${parents[@]}" -m "Rebrand upstream $tag (check-overlay)")"
 
 log "Merging into a scratch copy of $(git rev-parse --short HEAD)"
 git worktree add --quiet --detach "$work/head" HEAD

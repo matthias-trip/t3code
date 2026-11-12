@@ -93,7 +93,11 @@ describe("resolveMcpGate", () => {
 
   it.each([
     ["no Claude Code Connect sign-in", { ...open, signedIn: false }, "sign-in"],
-    ["no permission to read Claude Code Connect", { ...open, canReadRelay: false }, "no-relay-read"],
+    [
+      "no permission to read Claude Code Connect",
+      { ...open, canReadRelay: false },
+      "no-relay-read",
+    ],
     ["a server without approval codes", { ...open, approvalCodes: false }, "update"],
     ["no tunnel", { ...open, linkState: { ...tunnel, managedTunnelActive: false } }, "turn-on"],
     ["a removed link", { ...open, linkState: { ...tunnel, linkRevoked: true } }, "turn-on"],
@@ -117,7 +121,11 @@ describe("resolveMcpGate", () => {
       { ...saved, relay: { status: "listed", endpoint: undefined } },
       "turn-on",
     ],
-    ["Claude Code Connect's list still loading", { ...saved, relay: { status: "loading" } }, "checking"],
+    [
+      "Claude Code Connect's list still loading",
+      { ...saved, relay: { status: "loading" } },
+      "checking",
+    ],
     [
       "a disconnected saved machine while Claude Code Connect's list refreshes",
       { ...saved, connected: false, relay: { status: "loading" } },

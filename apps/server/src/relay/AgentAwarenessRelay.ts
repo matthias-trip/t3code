@@ -932,7 +932,9 @@ export const make = Effect.gen(function* () {
           );
           break;
         case "disabled":
-          yield* Effect.logInfo("agent activity publishing disabled by Claude Code Connect configuration");
+          yield* Effect.logInfo(
+            "agent activity publishing disabled by Claude Code Connect configuration",
+          );
           break;
         case "enabled":
           yield* Effect.logInfo("agent activity publishing enabled", {

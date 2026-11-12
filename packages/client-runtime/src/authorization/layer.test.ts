@@ -479,41 +479,43 @@ describe("RemoteEnvironmentAuthorization", () => {
     }),
   );
 
-  it.effect("uses the Claude Code Connect token on a learned direct address without the relay", () =>
-    Effect.gen(function* () {
-      const cached = new TokenStore.RemoteDpopAccessToken({
-        environmentId: ENVIRONMENT_ID,
-        accountId: "account-1",
-        label: DESCRIPTOR.label,
-        endpoint: ENDPOINT,
-        accessToken: "cached-access-token",
-        expiresAtEpochMs: Number.MAX_SAFE_INTEGER,
-        dpopThumbprint: "thumbprint-1",
-      });
-      const harness = yield* makeHarness({
-        initialToken: cached,
-        responses: [Response.json(DESCRIPTOR), websocketTicket("lan-ticket")],
-      });
-
-      const authorized = yield* Effect.gen(function* () {
-        const remote = yield* RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization;
-        return yield* remote.authorizeDpop({
-          expectedEnvironmentId: ENVIRONMENT_ID,
-          directEndpoint: {
-            httpBaseUrl: "http://192.168.1.10:3773/",
-            wsBaseUrl: "ws://192.168.1.10:3773/",
-          },
+  it.effect(
+    "uses the Claude Code Connect token on a learned direct address without the relay",
+    () =>
+      Effect.gen(function* () {
+        const cached = new TokenStore.RemoteDpopAccessToken({
+          environmentId: ENVIRONMENT_ID,
+          accountId: "account-1",
+          label: DESCRIPTOR.label,
+          endpoint: ENDPOINT,
+          accessToken: "cached-access-token",
+          expiresAtEpochMs: Number.MAX_SAFE_INTEGER,
+          dpopThumbprint: "thumbprint-1",
         });
-      }).pipe(Effect.provide(harness.layer));
+        const harness = yield* makeHarness({
+          initialToken: cached,
+          responses: [Response.json(DESCRIPTOR), websocketTicket("lan-ticket")],
+        });
 
-      expect(authorized.httpBaseUrl).toBe("http://192.168.1.10:3773/");
-      expect(authorized.socketUrl).toMatch(/^ws:\/\/192\.168\.1\.10:3773\/ws\?/);
-      expect(yield* Ref.get(harness.bootstrapCalls)).toBe(0);
-      expect(harness.fetch.calls.map(([url]) => String(url))).toEqual([
-        "http://192.168.1.10:3773/.well-known/t3/environment",
-        "http://192.168.1.10:3773/api/auth/websocket-ticket/rpc",
-      ]);
-    }),
+        const authorized = yield* Effect.gen(function* () {
+          const remote = yield* RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization;
+          return yield* remote.authorizeDpop({
+            expectedEnvironmentId: ENVIRONMENT_ID,
+            directEndpoint: {
+              httpBaseUrl: "http://192.168.1.10:3773/",
+              wsBaseUrl: "ws://192.168.1.10:3773/",
+            },
+          });
+        }).pipe(Effect.provide(harness.layer));
+
+        expect(authorized.httpBaseUrl).toBe("http://192.168.1.10:3773/");
+        expect(authorized.socketUrl).toMatch(/^ws:\/\/192\.168\.1\.10:3773\/ws\?/);
+        expect(yield* Ref.get(harness.bootstrapCalls)).toBe(0);
+        expect(harness.fetch.calls.map(([url]) => String(url))).toEqual([
+          "http://192.168.1.10:3773/.well-known/t3/environment",
+          "http://192.168.1.10:3773/api/auth/websocket-ticket/rpc",
+        ]);
+      }),
   );
 
   it.effect("sends no token to a direct address that answers as another machine", () =>

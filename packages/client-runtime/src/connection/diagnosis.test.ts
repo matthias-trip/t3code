@@ -85,7 +85,9 @@ describe("presentConnectionDiagnosis", () => {
         cause: new TypeError("Failed to fetch"),
       }),
     );
-    expect(diagnose(backoff(failure))?.headline).toBe("This device can't reach Claude Code Connect");
+    expect(diagnose(backoff(failure))?.headline).toBe(
+      "This device can't reach Claude Code Connect",
+    );
     expect(results(backoff(failure))).toEqual([
       "device:ok",
       "relay:failed",

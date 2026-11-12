@@ -151,7 +151,9 @@ describe("ThreadActivityAnnouncer", () => {
       }),
     );
 
-    await expect.element(detail).toHaveTextContent("Claude Code: Checking the repo. Needs approval");
+    await expect
+      .element(detail)
+      .toHaveTextContent("Claude Code: Checking the repo. Needs approval");
     await expect.element(status).toHaveTextContent("Working");
   });
 });

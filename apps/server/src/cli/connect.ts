@@ -114,7 +114,9 @@ const authorizeCli = Effect.fn("cloud.cli.authorize")(function* (options: {
   const existing = yield* tokens.getExisting.pipe(
     Effect.catchTags({
       CloudCliCredentialRefreshError: () =>
-        Console.log("Claude Code Connect sign-in expired. Sign in again.").pipe(Effect.as(Option.none())),
+        Console.log("Claude Code Connect sign-in expired. Sign in again.").pipe(
+          Effect.as(Option.none()),
+        ),
     }),
   );
   if (Option.isSome(existing)) {
@@ -597,7 +599,9 @@ const linkEnvironmentForConnect = Effect.fn("cloud.cli.link_environment")(functi
         : reportRelayClientInstallProgress,
     );
     if (Option.isNone(installed)) {
-      yield* Console.log("Claude Code Connect setup cancelled. The relay client was not installed.");
+      yield* Console.log(
+        "Claude Code Connect setup cancelled. The relay client was not installed.",
+      );
       return null;
     }
     if (options.installRelayClient !== true) {

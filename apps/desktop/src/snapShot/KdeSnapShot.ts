@@ -115,7 +115,8 @@ export class KdeCaptureSetup {
       if (!bundle)
         return {
           status: "error",
-          message: "The capture helper is missing from this build. Update or reinstall Claude Code.",
+          message:
+            "The capture helper is missing from this build. Update or reinstall Claude Code.",
         };
       if (!installed.equals(bundle) || entry.toString() !== kdeCaptureDesktopEntry(executable))
         return {

@@ -1123,7 +1123,8 @@ describe("CodexAdapterV2 session initialize", () => {
               frame: {
                 id: 1,
                 result: {
-                  userAgent: "Claude Code/0.144.3 (Mac OS 15.5.0; x86_64) unknown (Claude Code; 0.1.5)",
+                  userAgent:
+                    "Claude Code/0.144.3 (Mac OS 15.5.0; x86_64) unknown (Claude Code; 0.1.5)",
                   codexHome: "/tmp/codex-home",
                   platformFamily: "unix",
                   platformOs: "macos",
