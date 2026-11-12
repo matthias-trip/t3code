@@ -62,6 +62,8 @@ describe("ForkMigrations", () => {
       const sql = yield* SqlClient.SqlClient;
       const laterId = upstreamHead + 1;
       // Upstream's migrator, as Migrations.ts builds it, with the next release's migration added.
+      // This drives Migrator directly, not runMigrations(): upstream's collision guard and
+      // reconcile path (Migrations.ts) only see it through the runMigrations() no-op below.
       const upstreamNextRelease = Migrator.make({});
       const executed = yield* upstreamNextRelease({
         loader: Migrator.fromRecord({

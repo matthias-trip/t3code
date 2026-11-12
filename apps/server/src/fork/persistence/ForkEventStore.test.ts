@@ -17,6 +17,8 @@ class ProjectionRejected extends Schema.TaggedError<ProjectionRejected>()(
   {},
 ) {}
 
+const decodeNumber = Schema.decodeUnknownEffect(Schema.Number);
+
 const occurredAt = DateTime.makeUnsafe("2026-11-12T10:00:00.000Z");
 
 const createProjectionTable = Effect.gen(function* () {
@@ -181,6 +183,88 @@ describe("ForkEventStore", () => {
       });
       assert.isTrue(empty.committed);
       assert.strictEqual(empty.receipt.resultSequence, first.receipt.resultSequence);
+    }).pipe(Effect.provide(layerTest)),
+  );
+  it.effect("passes a projection's own SchemaError through unchanged", () =>
+    Effect.gen(function* () {
+      yield* createProjectionTable;
+      const store = yield* ForkEventStore.ForkEventStore;
+      const failure = yield* store
+        .commit({
+          commandId: "command:schema",
+          commandType: "space.create",
+          acceptedAt: occurredAt,
+          events: [spaceCreated("space:a", "A")],
+          project: () => decodeNumber("not a number"),
+        })
+        .pipe(Effect.flip);
+      assert.isTrue(Schema.isSchemaError(failure));
+      assert.deepStrictEqual(yield* counts, { events: 0, receipts: 0, projections: 0 });
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("rejects a command id reused for another command type", () =>
+    Effect.gen(function* () {
+      yield* createProjectionTable;
+      const store = yield* ForkEventStore.ForkEventStore;
+      const input = {
+        commandId: "command:reused",
+        commandType: "space.create",
+        acceptedAt: occurredAt,
+        events: [spaceCreated("space:a", "A")],
+      };
+      yield* store.commit(input);
+      const failure = yield* store
+        .commit({ ...input, commandType: "space.archive" })
+        .pipe(Effect.flip);
+      assert.strictEqual(failure._tag, "ForkCommandIdConflictError");
+      assert.deepStrictEqual(yield* counts, { events: 1, receipts: 1, projections: 0 });
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("gives concurrent commits on one stream distinct versions", () =>
+    Effect.gen(function* () {
+      yield* createProjectionTable;
+      const store = yield* ForkEventStore.ForkEventStore;
+      const results = yield* Effect.all(
+        Array.from({ length: 8 }, (_, index) =>
+          store.commit({
+            commandId: `command:concurrent:${index}`,
+            commandType: "space.update",
+            acceptedAt: occurredAt,
+            events: [spaceCreated("space:a", `A${index}`)],
+          }),
+        ),
+        { concurrency: "unbounded" },
+      );
+      const stored = results.flatMap((result) => result.events);
+      assert.deepStrictEqual(
+        stored.map((event) => event.streamVersion).toSorted((a, b) => a - b),
+        [1, 2, 3, 4, 5, 6, 7, 8],
+      );
+      const sequences = (yield* store.readAfter({ afterSequence: 0 })).map((e) => e.sequence);
+      assert.deepStrictEqual(sequences, [1, 2, 3, 4, 5, 6, 7, 8]);
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("returns the same payload from commit as readAfter replays", () =>
+    Effect.gen(function* () {
+      const store = yield* ForkEventStore.ForkEventStore;
+      const result = yield* store.commit({
+        commandId: "command:payload",
+        commandType: "space.create",
+        acceptedAt: occurredAt,
+        events: [
+          {
+            streamId: "space:a",
+            type: "space.created",
+            payload: { name: "A", note: undefined },
+            occurredAt,
+          },
+        ],
+      });
+      assert.deepStrictEqual(result.events[0]!.payload, { name: "A" });
+      assert.deepStrictEqual(yield* store.readAfter({ afterSequence: 0 }), result.events);
     }).pipe(Effect.provide(layerTest)),
   );
 });

@@ -5,6 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as SqlError from "effect/sql/SqlError";
+import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 
 export class ForkEventStoreWriteError extends Schema.TaggedError<ForkEventStoreWriteError>()(
   "ForkEventStoreWriteError",
@@ -16,6 +17,20 @@ export class ForkEventStoreWriteError extends Schema.TaggedError<ForkEventStoreW
 ) {
   override get message(): string {
     return `Failed to commit fork command ${this.commandId} with ${this.eventCount} event(s).`;
+  }
+}
+
+/** A command id was reused for a different command type; the stored receipt is not this command's. */
+export class ForkCommandIdConflictError extends Schema.TaggedError<ForkCommandIdConflictError>()(
+  "ForkCommandIdConflictError",
+  {
+    commandId: Schema.String,
+    storedCommandType: Schema.String,
+    commandType: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `Fork command id ${this.commandId} was already used by ${this.storedCommandType}, not ${this.commandType}.`;
   }
 }
 
@@ -44,7 +59,7 @@ export const ForkStoredEvent = Schema.Struct({
 });
 export type ForkStoredEvent = typeof ForkStoredEvent.Type;
 
-export const ForkCommandReceipt = Schema.Struct({
+const ForkCommandReceipt = Schema.Struct({
   commandId: Schema.String,
   commandType: Schema.String,
   acceptedAt: Schema.DateTimeUtc,
@@ -56,7 +71,7 @@ export type ForkCommandReceipt = typeof ForkCommandReceipt.Type;
 export interface ForkEventInput {
   readonly streamId: string;
   readonly type: string;
-  /** Must be JSON-serializable. */
+  /** Must be JSON-serializable; stored and returned as its JSON round-trip. */
   readonly payload: unknown;
   readonly occurredAt: DateTime.Utc;
 }
@@ -82,15 +97,16 @@ export class ForkEventStore extends Context.Service<
   ForkEventStore,
   {
     /**
-     * Appends events, runs projection writes, and records the receipt in one transaction. A command
-     * id that already has a receipt returns it without appending or projecting again. Any SqlError,
-     * including one from `project`, fails as ForkEventStoreWriteError and rolls everything back.
+     * Appends events, runs `project`, and records the receipt in one transaction. A retried id
+     * returns its receipt without re-running; reused for another command type it fails as
+     * ForkCommandIdConflictError. SqlErrors become ForkEventStoreWriteError; other `project`
+     * errors pass through. Any failure rolls everything back.
      */
     readonly commit: <E = never, R = never>(
       input: ForkCommitInput<E, R>,
     ) => Effect.Effect<
       ForkCommitResult,
-      ForkEventStoreWriteError | Exclude<E, SqlError.SqlError>,
+      ForkEventStoreWriteError | ForkCommandIdConflictError | Exclude<E, SqlError.SqlError>,
       Exclude<R, SqlClient.SqlClient>
     >;
     /** Events with sequence greater than `afterSequence`, oldest first. */
@@ -118,6 +134,7 @@ const decodeReceiptRow = Schema.decodeUnknownEffect(
   })),
 );
 const encodePayload = Schema.encodeEffect(PayloadJson);
+const decodePayload = Schema.decodeEffect(PayloadJson);
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -126,23 +143,40 @@ const make = Effect.gen(function* () {
     SELECT COALESCE(MAX(sequence), 0) AS sequence FROM fork_events
   `.pipe(Effect.map((rows) => rows[0]?.sequence ?? 0));
 
-  // Runs inside commit's span and transaction; no span of its own.
+  // Runs inside commit's span and transaction; no span of its own. Store-owned SQL and schema
+  // failures become ForkEventStoreWriteError where they happen, so `project`'s own errors (even
+  // a SchemaError) reach the caller unchanged.
   const commitInTransaction = Effect.fnUntraced(function* <E, R>(input: ForkCommitInput<E, R>) {
+    const writeError = (cause: unknown) =>
+      new ForkEventStoreWriteError({
+        commandId: input.commandId,
+        eventCount: input.events.length,
+        cause,
+      });
+    const own = <A, E2, R2>(effect: Effect.Effect<A, E2, R2>) =>
+      effect.pipe(Effect.mapError(writeError));
     const acceptedAt = DateTime.formatIso(input.acceptedAt);
     // Reserve the receipt first, like upstream's EventSink: a retried id stops here.
-    const reserved = yield* sql<{ readonly command_id: string }>`
+    const reserved = yield* own(sql<{ readonly command_id: string }>`
         INSERT INTO fork_command_receipts (command_id, command_type, accepted_at, result_sequence)
         VALUES (${input.commandId}, ${input.commandType}, ${acceptedAt}, 0)
         ON CONFLICT (command_id) DO NOTHING
         RETURNING command_id
-      `;
+      `);
     if (reserved.length === 0) {
-      const rows = yield* sql`
+      const rows = yield* own(sql`
           SELECT command_id AS "commandId", command_type AS "commandType",
             accepted_at AS "acceptedAt", result_sequence AS "resultSequence"
           FROM fork_command_receipts WHERE command_id = ${input.commandId}
-        `;
-      const receipt = yield* decodeReceiptRow(rows[0]);
+        `);
+      const receipt = yield* own(decodeReceiptRow(rows[0]));
+      if (receipt.commandType !== input.commandType) {
+        return yield* new ForkCommandIdConflictError({
+          commandId: input.commandId,
+          storedCommandType: receipt.commandType,
+          commandType: input.commandType,
+        });
+      }
       return { receipt, events: [], committed: false } satisfies ForkCommitResult;
     }
 
@@ -151,16 +185,16 @@ const make = Effect.gen(function* () {
     for (const event of input.events) {
       let version = versions.get(event.streamId);
       if (version === undefined) {
-        const rows = yield* sql<{ readonly version: number }>`
+        const rows = yield* own(sql<{ readonly version: number }>`
             SELECT COALESCE(MAX(stream_version), 0) AS version
             FROM fork_events WHERE stream_id = ${event.streamId}
-          `;
+          `);
         version = rows[0]?.version ?? 0;
       }
       version += 1;
       versions.set(event.streamId, version);
-      const payloadJson = yield* encodePayload(event.payload);
-      const [row] = yield* sql<{ readonly sequence: number }>`
+      const payloadJson = yield* own(encodePayload(event.payload));
+      const [row] = yield* own(sql<{ readonly sequence: number }>`
           INSERT INTO fork_events (
             stream_id, stream_version, event_type, payload_json, command_id, occurred_at
           ) VALUES (
@@ -168,27 +202,31 @@ const make = Effect.gen(function* () {
             ${DateTime.formatIso(event.occurredAt)}
           )
           RETURNING sequence
-        `;
+        `);
       stored.push({
         sequence: row!.sequence,
         streamId: event.streamId,
         streamVersion: version,
         type: event.type,
-        payload: event.payload,
+        // The JSON round-trip, so live projections see exactly what readAfter replays.
+        payload: yield* own(decodePayload(payloadJson)),
         commandId: input.commandId,
         occurredAt: event.occurredAt,
       });
     }
 
     if (input.project !== undefined) {
-      yield* input.project(stored).pipe(Effect.provideService(SqlClient.SqlClient, sql));
+      yield* input.project(stored).pipe(
+        Effect.provideService(SqlClient.SqlClient, sql),
+        Effect.catchIf(SqlError.isSqlError, (cause) => Effect.fail(writeError(cause))),
+      );
     }
 
-    const resultSequence = stored.at(-1)?.sequence ?? (yield* selectLatestSequence);
-    yield* sql`
+    const resultSequence = stored.at(-1)?.sequence ?? (yield* own(selectLatestSequence));
+    yield* own(sql`
         UPDATE fork_command_receipts SET result_sequence = ${resultSequence}
         WHERE command_id = ${input.commandId}
-      `;
+      `);
     const receipt: ForkCommandReceipt = {
       commandId: input.commandId,
       commandType: input.commandType,
@@ -203,18 +241,19 @@ const make = Effect.gen(function* () {
       "fork.command.type": input.commandType,
       "fork.command.event_count": input.events.length,
     });
+    // Only BEGIN / COMMIT / ROLLBACK can still fail with a raw SqlError here.
     return yield* sql.withTransaction(commitInTransaction(input)).pipe(
-      Effect.mapError((cause) =>
-        SqlError.isSqlError(cause) || Schema.isSchemaError(cause)
-          ? new ForkEventStoreWriteError({
-              commandId: input.commandId,
-              eventCount: input.events.length,
-              cause,
-            })
-          : (cause as Exclude<E, SqlError.SqlError>),
+      Effect.catchIf(SqlError.isSqlError, (cause) =>
+        Effect.fail(
+          new ForkEventStoreWriteError({
+            commandId: input.commandId,
+            eventCount: input.events.length,
+            cause,
+          }),
+        ),
       ),
     );
-  }) as ForkEventStore["Service"]["commit"];
+  });
 
   const readAfter = Effect.fn("ForkEventStore.readAfter")(function* (input: {
     readonly afterSequence: number;
@@ -230,6 +269,7 @@ const make = Effect.gen(function* () {
       ORDER BY sequence
       LIMIT ${limit}
     `.pipe(
+      NodeSqliteClient.readOnly,
       Effect.flatMap(decodeEventRows),
       Effect.mapError(
         (cause) => new ForkEventStoreReadError({ afterSequence: input.afterSequence, cause }),
@@ -238,6 +278,7 @@ const make = Effect.gen(function* () {
   });
 
   const latestSequence = selectLatestSequence.pipe(
+    NodeSqliteClient.readOnly,
     Effect.mapError((cause) => new ForkEventStoreReadError({ cause })),
     Effect.withSpan("ForkEventStore.latestSequence"),
   );
