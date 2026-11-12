@@ -243,7 +243,7 @@ function formatComposerContextProviderMarker(
 }
 
 // Escape envelope tags so payload text cannot close the envelope and forge records.
-function escapeComposerContextPayloadText(text: string): string {
+export function escapeComposerContextPayloadText(text: string): string {
   return text.replace(
     new RegExp(String.raw`<(?=/?(?:${CONTEXT_ENVELOPE_TAG}|${CONTEXT_ENTRY_TAG})\b)`, "gi"),
     "&lt;",
