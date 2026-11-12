@@ -30,6 +30,7 @@ import {
   WS_METHODS,
   WsRpcGroup,
 } from "@t3tools/contracts";
+import { FORK_RPC_REQUIRED_SCOPES, type ForkRpcMethod } from "@t3tools/fork-spaces/contracts/rpc"; // fork-seam
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Layer from "effect/Layer";
@@ -257,6 +258,10 @@ const requiredScopesForRpcCall = (
   method: string,
   payload: unknown,
 ): ReadonlyArray<AuthEnvironmentScope> => {
+  // fork-seam: fork RPCs share this socket and declare their scopes in @t3tools/fork-spaces.
+  if (Object.hasOwn(FORK_RPC_REQUIRED_SCOPES, method)) {
+    return [FORK_RPC_REQUIRED_SCOPES[method as ForkRpcMethod]];
+  }
   if (method === WS_METHODS.serverRetryResourceTelemetry) {
     return [AuthEnvironmentMaintainScope, AuthDiagnosticsReadScope];
   }
