@@ -1,0 +1,13 @@
+{
+  // contracts/ and shared/ load on the server and every client (web, desktop, mobile), so they
+  // build without Node types, and `composite` makes any import of a file outside `include`
+  // (such as ../server/*) an error (TS6307). Tests may use Node; tsconfig.json checks them.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "types": [],
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.shared.tsbuildinfo"
+  },
+  "include": ["src/contracts", "src/shared"],
+  "exclude": ["src/**/*.test.ts"]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@t3tools/fork-spaces",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./contracts/capabilities": {
+      "types": "./src/contracts/capabilities.ts",
+      "import": "./src/contracts/capabilities.ts"
+    },
+    "./shared/version": {
+      "types": "./src/shared/version.ts",
+      "import": "./src/shared/version.ts"
+    },
+    "./server/capabilities": {
+      "types": "./src/server/capabilities.ts",
+      "import": "./src/server/capabilities.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit && effect-tsgo tsrs --noEmit -p tsconfig.shared.json",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "@t3tools/contracts": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
