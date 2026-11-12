@@ -13,9 +13,9 @@ node --env-file-if-exists=../.env fork-space/run.ts --model claude-opus-5-5 --ou
 ```
 
 - `ANTHROPIC_API_KEY` in the repo root `.env` pays for the model.
-- Flags: `--model` (`claude-sonnet-5-5` default, `claude-opus-5-5`, `claude-haiku-5-5`), `--case <ids>`, `--samples <n>` (default 2, and a 3rd when the first 2 disagree), `--concurrency <n>` (default 4), `--max-steps <n>` (default 6), `--dry-run` (prints request bodies, no key needed), `--context` (prints the space tools' advertised bytes, as `AgentContextBudget.test.ts` counts them, no key needed).
+- Flags: `--model` (`claude-sonnet-5-5` default, `claude-opus-5-5`, `claude-haiku-5-5`), `--case <ids>`, `--samples <n>` (default 2, and one more when exactly half pass), `--concurrency <n>` (default 4), `--max-steps <n>` (default 6), `--baseline <results.jsonl>` (an earlier run on the same model; `summary.md` then shows each case's baseline passes and whether it is `same`, `fixed`, `regressed` or `new`), `--dry-run` (prints request bodies, no key needed), `--context` (prints the space tools' advertised bytes, as `AgentContextBudget.test.ts` counts them, no key needed).
 - A run writes `results.jsonl` and `summary.md` to `--out`. A case fails when half or more of its samples fail.
-- Cost: 10 cases at 2 samples are about 20 short turns, well under $1 on Sonnet. The summary records each run's cost.
+- Cost: 13 cases at 2 samples are about 26 short turns, well under $1 on Sonnet. The summary records each run's cost.
 
 ## Add a case
 

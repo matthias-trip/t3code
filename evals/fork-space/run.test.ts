@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { grade, type SpaceState } from "./grade.ts";
+import { compareToBaseline, grade, needsTiebreak, type SpaceState } from "./grade.ts";
 
 const state: SpaceState = {
   spaces: [
@@ -16,7 +16,8 @@ const state: SpaceState = {
 const failures = (
   expect: Parameters<typeof grade>[0]["expect"],
   calls = [] as Array<{ tool: string; input: unknown }>,
-) => grade({ expect, calls, state, threadId: "thread:me" });
+  final = "",
+) => grade({ expect, calls, state, threadId: "thread:me", final });
 
 describe("grade", () => {
   it.each([
@@ -72,8 +73,51 @@ describe("grade", () => {
       true,
     ],
     ["brief lost text", { space: { id: "space:a", briefIncludes: ["fifo"] } }, false],
+    ["brief dropped old text", { space: { id: "space:a", briefExcludes: ["flag_v2"] } }, true],
+    ["brief kept old text", { space: { id: "space:a", briefExcludes: ["FLAG_V3"] } }, false],
     ["space gone", { space: { id: "space:c" } }, false],
   ] as const)("state: %s", (_name, expectation, pass) => {
     expect(failures(expectation).length === 0).toBe(pass);
+  });
+
+  it.each([
+    ["one refused call", 1, true],
+    ["a retried refused call", 2, false],
+  ] as const)("max calls: %s", (_name, count, pass) => {
+    const calls = Array.from({ length: count }, () => ({
+      tool: "space_move_thread",
+      input: { spaceId: "space:a" },
+    }));
+    expect(failures({ maxCalls: { space_move_thread: 1 } }, calls).length === 0).toBe(pass);
+  });
+
+  it.each([
+    ["answer names the refusal", "That space is Archived.", true],
+    ["answer hides it", "Done!", false],
+  ] as const)("final answer: %s", (_name, final, pass) => {
+    expect(failures({ finalIncludes: ["archived"] }, [], final).length === 0).toBe(pass);
+  });
+});
+
+describe("needsTiebreak", () => {
+  it.each([
+    [1, 2, true],
+    [2, 4, true],
+    [3, 4, false],
+    [1, 3, false],
+    [0, 0, false],
+  ] as const)("%i of %i passing: %s", (passes, samples, want) => {
+    expect(needsTiebreak(passes, samples)).toBe(want);
+  });
+});
+
+describe("compareToBaseline", () => {
+  it.each([
+    [{ passes: 2, samples: 2 }, { passes: 0, samples: 0 }, "new"],
+    [{ passes: 2, samples: 3 }, { passes: 1, samples: 3 }, "fixed"],
+    [{ passes: 1, samples: 2 }, { passes: 2, samples: 2 }, "regressed"],
+    [{ passes: 3, samples: 3 }, { passes: 2, samples: 3 }, "same"],
+  ] as const)("%o against %o is %s", (now, before, want) => {
+    expect(compareToBaseline(now, before)).toBe(want);
   });
 });

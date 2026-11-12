@@ -19,6 +19,10 @@ export type Expect = {
   }>;
   /** Tools that must not be called. A name ending in `*` is a prefix. */
   readonly callsMustNot?: ReadonlyArray<string>;
+  /** The most calls a tool may get, to catch a model retrying a refused call. */
+  readonly maxCalls?: Readonly<Record<string, number>>;
+  /** Case-insensitive substrings the model's final answer must contain. */
+  readonly finalIncludes?: ReadonlyArray<string>;
   /** The calling thread's space afterwards: a case-insensitive title substring, or null for none. */
   readonly threadSpace?: string | null;
   /** A space afterwards, by id. */
@@ -27,6 +31,8 @@ export type Expect = {
     readonly pinned?: boolean;
     readonly title?: string;
     readonly briefIncludes?: ReadonlyArray<string>;
+    /** Case-insensitive substrings the brief must no longer contain. */
+    readonly briefExcludes?: ReadonlyArray<string>;
   };
 };
 
@@ -57,6 +63,8 @@ export const grade = (input: {
   readonly calls: ReadonlyArray<Call>;
   readonly state: SpaceState;
   readonly threadId: string;
+  /** The model's last text. */
+  readonly final?: string;
 }): ReadonlyArray<string> => {
   const { expect, calls, state } = input;
   const failures: Array<string> = [];
@@ -70,6 +78,13 @@ export const grade = (input: {
     const hit = calls.find((call) => forbidden(pattern, call.tool));
     if (hit !== undefined) failures.push(`called ${hit.tool}`);
   }
+  for (const [tool, most] of Object.entries(expect.maxCalls ?? {})) {
+    const count = calls.filter((call) => call.tool === tool).length;
+    if (count > most) failures.push(`called ${tool} ${count} times`);
+  }
+  for (const text of expect.finalIncludes ?? [])
+    if (!(input.final ?? "").toLowerCase().includes(text.toLowerCase()))
+      failures.push(`answer lacks "${text}"`);
   if (expect.threadSpace !== undefined) {
     const spaceId = state.threadSpaces.find((entry) => entry.threadId === input.threadId)?.spaceId;
     const title = state.spaces.find((space) => space.id === spaceId)?.title;
@@ -91,7 +106,24 @@ export const grade = (input: {
       for (const text of want.briefIncludes ?? [])
         if (!space.brief.toLowerCase().includes(text.toLowerCase()))
           failures.push(`brief lacks "${text}"`);
+      for (const text of want.briefExcludes ?? [])
+        if (space.brief.toLowerCase().includes(text.toLowerCase()))
+          failures.push(`brief still has "${text}"`);
     }
   }
   return failures;
+};
+
+/** A case's verdict is unsettled when exactly half its samples pass; one more sample settles it. */
+export const needsTiebreak = (passes: number, samples: number) =>
+  samples > 0 && samples % 2 === 0 && passes * 2 === samples;
+
+type Tally = { readonly passes: number; readonly samples: number };
+
+/** How a case moved against a baseline run: verdicts as in the summary (fails at half or more). */
+export const compareToBaseline = (now: Tally, before: Tally) => {
+  if (before.samples === 0) return "new";
+  const passing = (tally: Tally) => tally.passes > tally.samples / 2;
+  if (passing(now) === passing(before)) return "same";
+  return passing(now) ? "fixed" : "regressed";
 };

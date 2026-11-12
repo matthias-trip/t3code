@@ -10,10 +10,8 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeUtil from "node:util";
 import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
-import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
@@ -21,12 +19,10 @@ import { Tool } from "effect/ai";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { SpaceToolkit } from "../../apps/server/src/fork/mcp/space/tools.ts";
-import * as SpaceHandlers from "../../apps/server/src/fork/mcp/space/handlers.ts";
+import { spaceWorldLayer } from "../../apps/server/src/fork/mcp/space/world.testkit.ts";
 import * as SpaceService from "../../apps/server/src/fork/spaces/SpaceService.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import * as McpInvocationContext from "../../apps/server/src/mcp/McpInvocationContext.ts";
-import * as McpToolAccess from "../../apps/server/src/mcp/McpToolAccess.ts";
-import { liveThreadsLayer } from "../../apps/server/src/mcp/McpToolAccess.testkit.ts";
 import { EnvironmentToolkit } from "../../apps/server/src/mcp/toolkits/environment/tools.ts";
 import { ProjectToolkit } from "../../apps/server/src/mcp/toolkits/project/tools.ts";
 import { ThreadToolkit } from "../../apps/server/src/mcp/toolkits/thread/tools.ts";
@@ -34,9 +30,8 @@ import {
   CLAUDE_PROVIDER,
   makeClaudeQueryOptions,
 } from "../../apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts";
-import { fixtureSpacesSnapshot } from "../../packages/fork-spaces/src/shared/spaceFixtures.ts";
 import { cases, type Case } from "./cases.ts";
-import { grade, type Call } from "./grade.ts";
+import { compareToBaseline, grade, needsTiebreak, type Call } from "./grade.ts";
 
 // USD per million tokens.
 const PRICES = {
@@ -55,6 +50,8 @@ const { values } = NodeUtil.parseArgs({
     samples: { type: "string", default: "2" },
     concurrency: { type: "string", default: "4" },
     "max-steps": { type: "string", default: "6" },
+    // An earlier run's results.jsonl, compared per case in summary.md.
+    baseline: { type: "string" },
     "dry-run": { type: "boolean", default: false },
     // Prints the space tools' advertised size, as AgentContextBudget.test.ts measures it.
     context: { type: "boolean", default: false },
@@ -148,6 +145,11 @@ const ApiResponse = Schema.Struct({
   usage: Schema.Struct({ input_tokens: Schema.Number, output_tokens: Schema.Number }),
 });
 const decodeResponse = Schema.decodeUnknownSync(Schema.fromJsonString(ApiResponse));
+const decodeBaselineRow = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Struct({ case: Schema.String, pass: Schema.optional(Schema.Boolean) }),
+  ),
+);
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const post = Effect.fn("evaluateForkSpace.post")(function* (body: unknown) {
@@ -187,16 +189,7 @@ const runSpaceTool = Effect.fn("evaluateForkSpace.runSpaceTool")(
     ),
 );
 
-const worldLayer = () =>
-  McpToolAccess.HandlersLayer.layer(SpaceHandlers.layer).pipe(
-    Layer.provideMerge(
-      Layer.mergeAll(
-        SpaceService.layerMemory({ initial: fixtureSpacesSnapshot }),
-        liveThreadsLayer,
-        SecureRandom.layerWebCrypto,
-      ),
-    ),
-  );
+const worldLayer = () => spaceWorldLayer();
 
 const request = (entry: Case, messages: ReadonlyArray<unknown>) => ({
   model,
@@ -244,7 +237,7 @@ const runSample = Effect.fn("evaluateForkSpace.sample")(function* (entry: Case) 
   }
   const spaces = yield* SpaceService.SpaceService;
   const state = yield* spaces.snapshot;
-  const failures = grade({ expect: entry.expect, calls, state, threadId: entry.threadId });
+  const failures = grade({ expect: entry.expect, calls, state, threadId: entry.threadId, final });
   const price = PRICES[model];
   const cost = (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
   return { pass: failures.length === 0, failures, calls, final, cost };
@@ -284,10 +277,10 @@ const report = await Effect.runPromise(
       ({ entry, n }) => sample(entry, n),
       { concurrency },
     )).slice();
-    // A third sample settles a split.
+    // One more sample settles an even split.
     const splits = selected.filter((entry) => {
       const own = rows.filter((row) => row.case === entry.id);
-      return own.length === 2 && own.some(passed) && !own.every(passed);
+      return needsTiebreak(own.filter(passed).length, own.length);
     });
     rows.push(
       ...(yield* Effect.forEach(splits, (entry) => sample(entry, samples), { concurrency })),
@@ -298,18 +291,37 @@ const report = await Effect.runPromise(
       rows.map((row) => encodeJson(row)).join("\n") + "\n",
     );
     const cost = rows.reduce((sum, row) => sum + ("cost" in row ? row.cost : 0), 0);
+    const baseline = values.baseline
+      ? NodeFS.readFileSync(values.baseline, "utf8")
+          .split("\n")
+          .filter((line) => line.trim().length > 0)
+          .map((line) => decodeBaselineRow(line))
+      : undefined;
+    const tally = (own: ReadonlyArray<{ readonly pass?: boolean }>) => ({
+      passes: own.filter((row) => row.pass === true).length,
+      samples: own.length,
+    });
     const lines = [
       `# fork-space on ${model}`,
       "",
-      "| case | kind | passes | failures |",
-      "|---|---|---|---|",
+      baseline === undefined
+        ? "| case | kind | passes | failures |"
+        : "| case | kind | passes | baseline | change | failures |",
+      baseline === undefined ? "|---|---|---|---|" : "|---|---|---|---|---|---|",
     ];
     for (const entry of selected) {
       const own = rows.filter((row) => row.case === entry.id);
-      const why = own.flatMap((row) => ("error" in row ? [row.error] : row.failures));
-      lines.push(
-        `| ${entry.id} | ${entry.kind} | ${own.filter(passed).length}/${own.length} | ${[...new Set(why)].join("; ")} |`,
-      );
+      const why = [...new Set(own.flatMap((row) => ("error" in row ? [row.error] : row.failures)))];
+      const now = tally(own.map((row) => ({ pass: passed(row) })));
+      const cells = [entry.id, entry.kind, `${now.passes}/${now.samples}`];
+      if (baseline !== undefined) {
+        const before = tally(baseline.filter((row) => row.case === entry.id));
+        cells.push(
+          before.samples === 0 ? "-" : `${before.passes}/${before.samples}`,
+          compareToBaseline(now, before),
+        );
+      }
+      lines.push(`| ${[...cells, why.join("; ")].join(" | ")} |`);
     }
     // A case fails when half or more of its samples fail.
     const failed = selected.filter((entry) => {
