@@ -46,3 +46,10 @@ toolchain() {
 base_tag() {
   git -C "$REPO" describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' HEAD
 }
+
+# Merge drivers named in .gitattributes. `fork-ours` keeps this branch's copy
+# of a generated file; regenerate it after the merge (fork/routes.mjs).
+setup_merge_drivers() {
+  git -C "$REPO" config merge.fork-ours.name "keep ours, regenerate after merge"
+  git -C "$REPO" config merge.fork-ours.driver true
+}
