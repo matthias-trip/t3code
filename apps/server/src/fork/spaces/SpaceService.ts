@@ -1,11 +1,11 @@
 import type { ThreadId } from "@t3tools/contracts";
 import {
   SpaceCommandRejectedError,
+  SpaceServiceError,
   type Space,
   type SpaceCommand,
   type SpaceDispatchResult,
   type SpaceId,
-  type SpaceServiceError,
   type SpacesSnapshot,
   type SpacesStreamItem,
 } from "@t3tools/fork-spaces/contracts/space";
@@ -17,12 +17,13 @@ import {
   spacesStateFromSnapshot,
   type SpacesState,
 } from "@t3tools/fork-spaces/shared/spaces";
+import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
@@ -58,11 +59,100 @@ const sortSpaces = (spaces: Iterable<Space>): ReadonlyArray<Space> =>
       b.updatedAt.localeCompare(a.updatedAt),
   );
 
+/** Current state and the fork_events sequence it reflects. */
+export interface SpacesView {
+  readonly state: SpacesState;
+  readonly sequence: number;
+}
+
+/** Events a subscriber may lag behind before its stream fails and it must resubscribe. */
+const SUBSCRIBER_CAPACITY = 1024;
+
+/**
+ * Reads over `view`, plus `publish` for its writer. Writers set `view`, then publish, so a
+ * subscriber sees each event once. Snapshots leave out threads `liveThreads` does not return.
+ */
+export const makeSpaceReads = (
+  view: Ref.Ref<SpacesView>,
+  liveThreads: (
+    threadIds: ReadonlyArray<ThreadId>,
+  ) => Effect.Effect<ReadonlySet<ThreadId>, SpaceServiceError>,
+) => {
+  const subscribers = new Set<Queue.Queue<SpacesStreamItem, SpaceServiceError>>();
+
+  // Never waits: a subscriber that falls behind is failed and dropped, not waited for.
+  const publish = (items: ReadonlyArray<SpacesStreamItem>) =>
+    Effect.sync(() => {
+      for (const queue of subscribers) {
+        if (Queue.offerAllUnsafe(queue, items).length === 0) continue;
+        subscribers.delete(queue);
+        Queue.failCauseUnsafe(
+          queue,
+          Cause.fail(new SpaceServiceError({ detail: "Spaces updates fell behind." })),
+        );
+      }
+    });
+
+  const snapshot = Effect.gen(function* () {
+    const { state, sequence } = yield* Ref.get(view);
+    const live = yield* liveThreads([...state.threadSpaces.keys()]);
+    const threadSpaces = new Map(
+      [...state.threadSpaces].filter(([threadId]) => live.has(threadId)),
+    );
+    return spacesSnapshotFromState({ ...state, threadSpaces }, sequence);
+  });
+
+  const subscribe = Stream.unwrap(
+    Effect.gen(function* () {
+      const queue = yield* Effect.acquireRelease(
+        Queue.dropping<SpacesStreamItem, SpaceServiceError>(SUBSCRIBER_CAPACITY).pipe(
+          Effect.tap((queue) => Effect.sync(() => subscribers.add(queue))),
+        ),
+        (queue) => Effect.sync(() => subscribers.delete(queue)),
+      );
+      const first = yield* snapshot;
+      return Stream.succeed<SpacesStreamItem>({ type: "snapshot", snapshot: first }).pipe(
+        Stream.concat(
+          Stream.fromQueue(queue).pipe(
+            Stream.filter((item) => item.type !== "event" || item.sequence > first.sequence),
+          ),
+        ),
+      );
+    }),
+  );
+
+  const getSpace = (spaceId: SpaceId) =>
+    Ref.get(view).pipe(Effect.map(({ state }) => Option.fromNullishOr(state.spaces.get(spaceId))));
+
+  // No upstream thread check: turn context calls this on every turn, for a thread that is
+  // running and so exists. A deleted thread runs no turns.
+  const spaceForThread = (threadId: ThreadId) =>
+    Ref.get(view).pipe(
+      Effect.map(({ state }) => {
+        const spaceId = state.threadSpaces.get(threadId);
+        return Option.fromNullishOr(spaceId === undefined ? undefined : state.spaces.get(spaceId));
+      }),
+    );
+
+  const listSpaces = (listOptions?: { readonly includeArchived?: boolean }) =>
+    Ref.get(view).pipe(
+      Effect.map(({ state }) =>
+        sortSpaces(
+          [...state.spaces.values()].filter(
+            (space) => listOptions?.includeArchived === true || space.archivedAt === null,
+          ),
+        ),
+      ),
+    );
+
+  return { publish, reads: { snapshot, subscribe, getSpace, spaceForThread, listSpaces } };
+};
+
 /**
  * In-memory SpaceService for tests of code that depends on it (MCP tools, turn context). Uses
  * the shared decider and reducer, so it behaves like the real service except for persistence,
- * idempotency across restarts, and thread-existence checks (every thread id is accepted unless
- * listed in `missingThreadIds`).
+ * idempotency across restarts, and thread-existence checks (every thread id is accepted, and
+ * shown in snapshots, unless listed in `missingThreadIds`).
  */
 export const layerMemory = (options?: {
   readonly initial?: SpacesSnapshot;
@@ -72,20 +162,26 @@ export const layerMemory = (options?: {
     SpaceService,
     Effect.gen(function* () {
       const missing = new Set(options?.missingThreadIds ?? []);
-      const state = yield* Ref.make<{ readonly state: SpacesState; readonly sequence: number }>({
+      const state = yield* Ref.make<SpacesView>({
         state:
           options?.initial === undefined
             ? emptySpacesState
             : spacesStateFromSnapshot(options.initial),
         sequence: options?.initial?.sequence ?? 0,
       });
-      const events = yield* PubSub.unbounded<SpacesStreamItem>();
+      const { publish, reads } = makeSpaceReads(state, (threadIds) =>
+        Effect.succeed(new Set(threadIds.filter((threadId) => !missing.has(threadId)))),
+      );
       const seen = new Map<string, SpaceDispatchResult>();
 
       const dispatch = Effect.fn("SpaceService.memory.dispatch")(function* (command: SpaceCommand) {
         const previous = seen.get(command.commandId);
         if (previous !== undefined) return previous;
-        if (command.type === "thread.space.set" && missing.has(command.threadId)) {
+        if (
+          command.type === "thread.space.set" &&
+          command.spaceId !== null &&
+          missing.has(command.threadId)
+        ) {
           return yield* new SpaceCommandRejectedError({
             commandId: command.commandId,
             reason: "thread_not_found",
@@ -102,68 +198,20 @@ export const layerMemory = (options?: {
             detail: decision.detail,
           });
         }
+        const items: Array<SpacesStreamItem> = [];
         let next = current;
         for (const event of decision.events) {
           next = { state: applySpaceEvent(next.state, event), sequence: next.sequence + 1 };
-          yield* PubSub.publish(events, { type: "event", sequence: next.sequence, event });
+          items.push({ type: "event", sequence: next.sequence, event });
         }
+        // View first, then publish: see makeSpaceReads.
         yield* Ref.set(state, next);
+        yield* publish(items);
         const result = { sequence: next.sequence };
         seen.set(command.commandId, result);
         return result;
       });
 
-      const snapshot = Ref.get(state).pipe(
-        Effect.map(({ state, sequence }) => spacesSnapshotFromState(state, sequence)),
-      );
-
-      const subscribe = Stream.unwrap(
-        Effect.gen(function* () {
-          const subscription = yield* PubSub.subscribe(events);
-          const first = yield* snapshot;
-          return Stream.succeed<SpacesStreamItem>({ type: "snapshot", snapshot: first }).pipe(
-            Stream.concat(
-              Stream.fromSubscription(subscription).pipe(
-                Stream.filter((item) => item.type !== "event" || item.sequence > first.sequence),
-              ),
-            ),
-          );
-        }),
-      );
-
-      const getSpace = (spaceId: SpaceId) =>
-        Ref.get(state).pipe(
-          Effect.map(({ state }) => Option.fromNullishOr(state.spaces.get(spaceId))),
-        );
-
-      const spaceForThread = (threadId: ThreadId) =>
-        Ref.get(state).pipe(
-          Effect.map(({ state }) => {
-            const spaceId = state.threadSpaces.get(threadId);
-            return Option.fromNullishOr(
-              spaceId === undefined ? undefined : state.spaces.get(spaceId),
-            );
-          }),
-        );
-
-      const listSpaces = (listOptions?: { readonly includeArchived?: boolean }) =>
-        Ref.get(state).pipe(
-          Effect.map(({ state }) =>
-            sortSpaces(
-              [...state.spaces.values()].filter(
-                (space) => listOptions?.includeArchived === true || space.archivedAt === null,
-              ),
-            ),
-          ),
-        );
-
-      return SpaceService.of({
-        dispatch,
-        snapshot,
-        subscribe,
-        getSpace,
-        spaceForThread,
-        listSpaces,
-      });
+      return SpaceService.of({ dispatch, ...reads });
     }),
   );
