@@ -220,6 +220,7 @@ import {
   readTailscaleStatus,
 } from "@t3tools/tailscale";
 import * as ServerActivation from "./serverActivation.ts";
+import * as ForkLayer from "./fork/ForkLayer.ts"; // fork-seam
 
 // Escaped MCP handoff provenance can exceed find-my-way's 100-character segment default.
 const HTTP_ROUTER_CONFIG = {
@@ -381,7 +382,8 @@ const layerPlatformServices = DocumentText.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
 );
 
-const layerPersistence = Layer.empty.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));
+// fork-seam: fork migrations run after upstream's; the fork event store shares the database.
+const layerPersistence = ForkLayer.layer.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));
 
 const layerVcsDriverRegistry = VcsDriverRegistry.layer.pipe(Layer.provide(VcsProjectConfig.layer));
 

@@ -47,6 +47,46 @@ const SIGNING = `            provisioningProfile: macPasskeySigning.provisioning
           : {}),
     };`;
 
+// Seams: the only edits the fork overlay (packages/fork-*, */src/fork/**)
+// makes to upstream files. Keep each one a line or two on a stable anchor.
+const forkDependency = (file) => ({
+  why: "the fork overlay package is a workspace dependency",
+  file,
+  find: '    "@t3tools/contracts": "workspace:*",\n',
+  replace: '    "@t3tools/contracts": "workspace:*",\n    "@t3tools/fork-spaces": "workspace:*",\n',
+  done: '"@t3tools/fork-spaces": "workspace:*"',
+});
+
+const SEAMS = [
+  forkDependency("apps/server/package.json"),
+  forkDependency("apps/web/package.json"),
+  {
+    why: "knip checks the fork overlay's exports like upstream's packages",
+    file: "package.json",
+    find: "--workspace packages/source-control-testing",
+    replace: "--workspace packages/source-control-testing --workspace packages/fork-spaces",
+    done: "--workspace packages/fork-spaces",
+  },
+  {
+    why: "the fork layer runs fork migrations after upstream's on the same database",
+    file: "apps/server/src/server.ts",
+    find: 'import * as ServerActivation from "./serverActivation.ts";\n',
+    replace:
+      'import * as ServerActivation from "./serverActivation.ts";\nimport * as ForkLayer from "./fork/ForkLayer.ts"; // fork-seam\n',
+    done: 'import * as ForkLayer from "./fork/ForkLayer.ts";',
+  },
+  {
+    why: "the fork layer runs fork migrations after upstream's on the same database",
+    file: "apps/server/src/server.ts",
+    find: "const layerPersistence = Layer.empty.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));",
+    replace: [
+      "// fork-seam: fork migrations run after upstream's; the fork event store shares the database.",
+      "const layerPersistence = ForkLayer.layer.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));",
+    ].join("\n"),
+    done: "const layerPersistence = ForkLayer.layer.pipe(",
+  },
+];
+
 export const PATCHES = [
   {
     why: "the bundle ID belongs to this fork",
@@ -192,6 +232,7 @@ export const PATCHES = [
     ].join("\n"),
     done: "// fork: run only by upstream workflows, which the fork removes.",
   },
+  ...SEAMS,
 ];
 
 // The desktop app's terminal command. Upstream calls it `t3`, which would
