@@ -1,6 +1,3 @@
-import type { EnvironmentRegistry } from "@t3tools/client-runtime/connection";
-import { request } from "@t3tools/client-runtime/rpc";
-import { createEnvironmentRpcQueryAtomFamily } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { ForkCapabilities, ForkCapability } from "@t3tools/fork-spaces/contracts/capabilities";
 import { FORK_WS_METHODS } from "@t3tools/fork-spaces/contracts/rpc";
@@ -8,13 +5,21 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import { AsyncResult, type Atom } from "effect/reactivity";
 
+import type * as EnvironmentRegistry from "../connection/registry.ts";
+import { request } from "../rpc/client.ts";
+import { createEnvironmentRpcQueryAtomFamily } from "../state/runtime.ts";
+
 /** What a plain upstream T3 Code environment offers: no fork features at all. */
 export const UPSTREAM_FORK_CAPABILITIES: ForkCapabilities = {
   protocolVersion: 0,
   capabilities: [],
 };
 
-const UNKNOWN_TAG_PREFIX = `Unknown request tag: ${FORK_WS_METHODS.capabilities}`;
+// Relies on effect 4.1.2's RpcServer (effect/src/rpc/RpcServer.ts): a request whose tag the
+// server's group lacks gets a per-request `Exit.die("Unknown request tag: <tag>")`, not a
+// connection defect. If Effect rewords it, the query fails instead: fork UI stays hidden, the
+// query does not retry, and the socket and other calls are unaffected. No toast, no reconnect.
+const UNKNOWN_TAG_DEFECT = `Unknown request tag: ${FORK_WS_METHODS.capabilities}`;
 
 const defectMessage = (defect: unknown): string | undefined => {
   if (typeof defect === "string") return defect;
@@ -24,12 +29,9 @@ const defectMessage = (defect: unknown): string | undefined => {
   return undefined;
 };
 
-/** Effect's RpcServer answers a tag it doesn't serve with this per-request defect. */
 const isUnknownForkRpcCause = (cause: Cause.Cause<unknown>): boolean =>
   cause.reasons.some(
-    (reason) =>
-      Cause.isDieReason(reason) &&
-      (defectMessage(reason.defect)?.startsWith(UNKNOWN_TAG_PREFIX) ?? false),
+    (reason) => Cause.isDieReason(reason) && defectMessage(reason.defect) === UNKNOWN_TAG_DEFECT,
   );
 
 const recoverUpstreamForkCapabilities = <E, R>(
