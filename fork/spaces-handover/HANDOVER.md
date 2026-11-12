@@ -25,7 +25,7 @@ Read, in this order:
 
 ## Status
 
-Pushed to GitHub: only `feature/spaces` as of the P1.0 freeze (`e176555`). Everything since is local. The user approved pushing `feature/spaces` only. **`claude-code` has not been touched and must not be pushed or merged into without asking.**
+Pushed to GitHub (`matthias-trip/t3code`): `feature/spaces` (includes this handover) plus `task/p1.d-mcp` @ `c0d0990ff8` and `task/p1.e-turn-context` @ `267eaf14fc`, the unfinished P1.D/P1.E drafts. Other `task/*` branches are already merged into `feature/spaces` and exist only locally. Fetch the two WIP branches and create worktrees from them (see Where things are). **`claude-code` has not been touched and must not be pushed or merged into without asking.**
 
 | Task                                                                                                                                                                      | State                                                                                                                                                                                                                                                                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
