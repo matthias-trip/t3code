@@ -104,6 +104,6 @@ Hand-back line each builder returns: `branch <name>, head <SHA>, tests <files: p
 ## Open items needing the user
 
 - Allow pushing task branches / `claude-code`? (Only `feature/spaces` was approved.)
-- An `ANTHROPIC_API_KEY` in `~/Workspace/t3code-spaces/.env` to run the `fork-space` eval against a model. Without it only `--dry-run` / `--context` and the grader tests run. Use the secret-request flow, never paste a key into a file the agent writes.
+- No API key wanted: the `fork-space` eval is to be reworked onto headless `claude -p` (see `p1d-fix-brief.md`).
 - Rust installed for the G0 build.
 - Proposal §15 questions still open: default autonomy (prepare vs brief), approving from mobile, naming, steward opt-in.

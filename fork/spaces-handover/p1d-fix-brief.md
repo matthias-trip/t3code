@@ -19,7 +19,7 @@ Backed only by the frozen `SpaceService` (test with `layerMemory`). Tools: `spac
 11. `run.ts`: tiebreak sample when passes equal half the samples for any even sample count; add `--baseline <results.jsonl>` with a per-case comparison in `summary.md` (`evals/README.md` requires it).
 12. Shorten descriptions: define "space" once (in `space_list`), drop or shorten the brief field note. Report the new byte total (was +1561 bytes on `mcpToolListJsonBytes`, 48217 to 49778).
 
-The eval cannot run against a model without `ANTHROPIC_API_KEY`: use `--dry-run`, `--context`, and the grader tests.
+**Eval must not use an API key (user decision).** Replace the raw `api.anthropic.com` call in `evals/fork-space/run.ts` with the headless Claude CLI: spawn `claude -p "<prompt>" --output-format stream-json --verbose --max-turns 1 --mcp-config <stub> --allowedTools "mcp__<stub>__space_*"`. The stub is a small stdio MCP server exposing the five `space_*` tool definitions (built from `tools.ts`) with canned results. The grader reads `tool_use` events from the stream. Drop the `ANTHROPIC_API_KEY` config and error. Keep `--dry-run`, `--context` and the grader tests. Note in `evals/README.md` that Claude Code's own system prompt is in play, so scores are not comparable to raw-API runs.
 
 ## Done when
 
