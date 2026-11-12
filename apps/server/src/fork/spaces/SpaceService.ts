@@ -58,6 +58,64 @@ const sortSpaces = (spaces: Iterable<Space>): ReadonlyArray<Space> =>
       b.updatedAt.localeCompare(a.updatedAt),
   );
 
+/** Current state and the fork_events sequence it reflects. */
+export interface SpacesView {
+  readonly state: SpacesState;
+  readonly sequence: number;
+}
+
+/**
+ * The read side of SpaceService over a view. Writers update `view` first and publish the new
+ * events to `events` after, so a subscriber that subscribes, then reads the view, sees every
+ * event exactly once (events at or below the snapshot's sequence are dropped).
+ */
+export const makeSpaceReads = (
+  view: Ref.Ref<SpacesView>,
+  events: PubSub.PubSub<SpacesStreamItem>,
+) => {
+  const snapshot = Ref.get(view).pipe(
+    Effect.map(({ state, sequence }) => spacesSnapshotFromState(state, sequence)),
+  );
+
+  const subscribe = Stream.unwrap(
+    Effect.gen(function* () {
+      const subscription = yield* PubSub.subscribe(events);
+      const first = yield* snapshot;
+      return Stream.succeed<SpacesStreamItem>({ type: "snapshot", snapshot: first }).pipe(
+        Stream.concat(
+          Stream.fromSubscription(subscription).pipe(
+            Stream.filter((item) => item.type !== "event" || item.sequence > first.sequence),
+          ),
+        ),
+      );
+    }),
+  );
+
+  const getSpace = (spaceId: SpaceId) =>
+    Ref.get(view).pipe(Effect.map(({ state }) => Option.fromNullishOr(state.spaces.get(spaceId))));
+
+  const spaceForThread = (threadId: ThreadId) =>
+    Ref.get(view).pipe(
+      Effect.map(({ state }) => {
+        const spaceId = state.threadSpaces.get(threadId);
+        return Option.fromNullishOr(spaceId === undefined ? undefined : state.spaces.get(spaceId));
+      }),
+    );
+
+  const listSpaces = (listOptions?: { readonly includeArchived?: boolean }) =>
+    Ref.get(view).pipe(
+      Effect.map(({ state }) =>
+        sortSpaces(
+          [...state.spaces.values()].filter(
+            (space) => listOptions?.includeArchived === true || space.archivedAt === null,
+          ),
+        ),
+      ),
+    );
+
+  return { snapshot, subscribe, getSpace, spaceForThread, listSpaces };
+};
+
 /**
  * In-memory SpaceService for tests of code that depends on it (MCP tools, turn context). Uses
  * the shared decider and reducer, so it behaves like the real service except for persistence,
@@ -72,7 +130,7 @@ export const layerMemory = (options?: {
     SpaceService,
     Effect.gen(function* () {
       const missing = new Set(options?.missingThreadIds ?? []);
-      const state = yield* Ref.make<{ readonly state: SpacesState; readonly sequence: number }>({
+      const state = yield* Ref.make<SpacesView>({
         state:
           options?.initial === undefined
             ? emptySpacesState
@@ -102,68 +160,20 @@ export const layerMemory = (options?: {
             detail: decision.detail,
           });
         }
+        const items: Array<SpacesStreamItem> = [];
         let next = current;
         for (const event of decision.events) {
           next = { state: applySpaceEvent(next.state, event), sequence: next.sequence + 1 };
-          yield* PubSub.publish(events, { type: "event", sequence: next.sequence, event });
+          items.push({ type: "event", sequence: next.sequence, event });
         }
+        // View first, then publish: see makeSpaceReads.
         yield* Ref.set(state, next);
+        yield* PubSub.publishAll(events, items);
         const result = { sequence: next.sequence };
         seen.set(command.commandId, result);
         return result;
       });
 
-      const snapshot = Ref.get(state).pipe(
-        Effect.map(({ state, sequence }) => spacesSnapshotFromState(state, sequence)),
-      );
-
-      const subscribe = Stream.unwrap(
-        Effect.gen(function* () {
-          const subscription = yield* PubSub.subscribe(events);
-          const first = yield* snapshot;
-          return Stream.succeed<SpacesStreamItem>({ type: "snapshot", snapshot: first }).pipe(
-            Stream.concat(
-              Stream.fromSubscription(subscription).pipe(
-                Stream.filter((item) => item.type !== "event" || item.sequence > first.sequence),
-              ),
-            ),
-          );
-        }),
-      );
-
-      const getSpace = (spaceId: SpaceId) =>
-        Ref.get(state).pipe(
-          Effect.map(({ state }) => Option.fromNullishOr(state.spaces.get(spaceId))),
-        );
-
-      const spaceForThread = (threadId: ThreadId) =>
-        Ref.get(state).pipe(
-          Effect.map(({ state }) => {
-            const spaceId = state.threadSpaces.get(threadId);
-            return Option.fromNullishOr(
-              spaceId === undefined ? undefined : state.spaces.get(spaceId),
-            );
-          }),
-        );
-
-      const listSpaces = (listOptions?: { readonly includeArchived?: boolean }) =>
-        Ref.get(state).pipe(
-          Effect.map(({ state }) =>
-            sortSpaces(
-              [...state.spaces.values()].filter(
-                (space) => listOptions?.includeArchived === true || space.archivedAt === null,
-              ),
-            ),
-          ),
-        );
-
-      return SpaceService.of({
-        dispatch,
-        snapshot,
-        subscribe,
-        getSpace,
-        spaceForThread,
-        listSpaces,
-      });
+      return SpaceService.of({ dispatch, ...makeSpaceReads(state, events) });
     }),
   );

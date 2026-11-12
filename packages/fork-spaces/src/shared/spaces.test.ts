@@ -127,6 +127,158 @@ describe("decideSpaceCommand", () => {
     ).toEqual({ _tag: "accepted", events: [] });
   });
 
+  it("pins once, keeps the first pin time, and unpins", () => {
+    const spaceId = fixtureSpaceIds.onboarding;
+    const pinned = run(initial, {
+      type: "space.update",
+      commandId: fixtureCommandId("p1"),
+      spaceId,
+      pinned: true,
+    });
+    expect(pinned.state.spaces.get(spaceId)?.pinnedAt).toBe(now);
+    const later = "2026-11-13T12:00:00.000Z";
+    expect(
+      decideSpaceCommand(
+        pinned.state,
+        { type: "space.update", commandId: fixtureCommandId("p2"), spaceId, pinned: true },
+        later,
+      ),
+    ).toEqual({ _tag: "accepted", events: [] });
+    const unpinned = run(pinned.state, {
+      type: "space.update",
+      commandId: fixtureCommandId("p3"),
+      spaceId,
+      pinned: false,
+    });
+    expect(unpinned.state.spaces.get(spaceId)?.pinnedAt).toBeNull();
+    expect(
+      run(unpinned.state, {
+        type: "space.update",
+        commandId: fixtureCommandId("p4"),
+        spaceId,
+        pinned: false,
+      }).decision,
+    ).toEqual({ _tag: "accepted", events: [] });
+  });
+
+  it("updates only the given fields, clears the icon on null, and stamps updatedAt", () => {
+    const spaceId = fixtureSpaceIds.payments;
+    const before = initial.spaces.get(spaceId)!;
+    const { state } = run(initial, {
+      type: "space.update",
+      commandId: fixtureCommandId("u1"),
+      spaceId,
+      brief: "",
+      icon: null,
+      projectIds: [fixtureProjectIds.infra, fixtureProjectIds.infra],
+    });
+    expect(state.spaces.get(spaceId)).toEqual({
+      ...before,
+      brief: "",
+      icon: null,
+      projectIds: [fixtureProjectIds.infra],
+      updatedAt: now,
+    });
+  });
+
+  it("unpins on archive, and treats archive of archived and unarchive of live as no-ops", () => {
+    const pinned = fixtureSpaceIds.payments;
+    const archived = run(initial, {
+      type: "space.archive",
+      commandId: fixtureCommandId("a1"),
+      spaceId: pinned,
+    });
+    expect(archived.state.spaces.get(pinned)).toMatchObject({ archivedAt: now, pinnedAt: null });
+    for (const command of [
+      { type: "space.archive", spaceId: fixtureSpaceIds.archived },
+      { type: "space.unarchive", spaceId: fixtureSpaceIds.onboarding },
+    ] as const) {
+      expect(
+        decideSpaceCommand(initial, { ...command, commandId: fixtureCommandId("noop") }, now),
+      ).toEqual({ _tag: "accepted", events: [] });
+    }
+    expect(
+      run(initial, {
+        type: "space.update",
+        commandId: fixtureCommandId("u2"),
+        spaceId: fixtureSpaceIds.archived,
+        title: "Edited",
+      }).decision,
+    ).toMatchObject({ _tag: "rejected", reason: "space_archived" });
+  });
+
+  it("rejects commands on missing spaces and a second create of the same id", () => {
+    const missing = SpaceId.make("space:missing");
+    const commands: ReadonlyArray<SpaceCommand> = [
+      { type: "space.update", commandId: fixtureCommandId("m1"), spaceId: missing, title: "X" },
+      { type: "space.archive", commandId: fixtureCommandId("m2"), spaceId: missing },
+      { type: "space.unarchive", commandId: fixtureCommandId("m3"), spaceId: missing },
+      { type: "space.delete", commandId: fixtureCommandId("m4"), spaceId: missing },
+      {
+        type: "thread.space.set",
+        commandId: fixtureCommandId("m5"),
+        threadId: fixtureThreadIds.unfiled,
+        spaceId: missing,
+      },
+    ];
+    for (const command of commands) {
+      expect(decideSpaceCommand(initial, command, now)).toEqual({
+        _tag: "rejected",
+        reason: "space_not_found",
+        detail: missing,
+      });
+    }
+    expect(
+      decideSpaceCommand(
+        initial,
+        {
+          type: "space.create",
+          commandId: fixtureCommandId("c2"),
+          spaceId: fixtureSpaceIds.payments,
+          title: "Again",
+        },
+        now,
+      ),
+    ).toMatchObject({ _tag: "rejected", reason: "space_exists" });
+  });
+
+  it("takes a thread out of an archived space, and out of no space as a no-op", () => {
+    const archived = run(initial, {
+      type: "space.archive",
+      commandId: fixtureCommandId("a2"),
+      spaceId: fixtureSpaceIds.onboarding,
+    });
+    const out = run(archived.state, {
+      type: "thread.space.set",
+      commandId: fixtureCommandId("o1"),
+      threadId: fixtureThreadIds.onboardingCopy,
+      spaceId: null,
+    });
+    expect(out.decision).toEqual({
+      _tag: "accepted",
+      events: [
+        {
+          type: "thread.space-updated",
+          threadId: fixtureThreadIds.onboardingCopy,
+          spaceId: null,
+          previousSpaceId: fixtureSpaceIds.onboarding,
+        },
+      ],
+    });
+    expect(
+      decideSpaceCommand(
+        initial,
+        {
+          type: "thread.space.set",
+          commandId: fixtureCommandId("o2"),
+          threadId: fixtureThreadIds.unfiled,
+          spaceId: null,
+        },
+        now,
+      ),
+    ).toEqual({ _tag: "accepted", events: [] });
+  });
+
   it("round-trips state through a snapshot", () => {
     expect(spacesStateFromSnapshot(spacesSnapshotFromState(initial, 12))).toEqual(initial);
     expect(initial.threadSpaces.get(ThreadId.make("thread:unknown"))).toBeUndefined();
