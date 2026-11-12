@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Implementation waves</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+        color: var(--foreground, #111);
+      }
+      .ph {
+        margin: 0 0 18px;
+      }
+      .ph h2 {
+        font-size: 14px;
+        margin: 0 0 2px;
+        font-weight: 600;
+      }
+      .ph .g {
+        font-size: 12px;
+        color: var(--muted-foreground, #666);
+        margin: 0 0 8px;
+      }
+      .waves {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+        overflow-x: auto;
+      }
+      .wave {
+        flex: 1 1 0;
+        min-width: 0;
+        border: 1px solid var(--border, #e5e5e5);
+        border-radius: var(--radius, 8px);
+        padding: 8px;
+      }
+      .wave .h {
+        font-size: 11px;
+        color: var(--muted-foreground, #666);
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .t {
+        font-size: 12px;
+        padding: 4px 7px;
+        border-radius: 6px;
+        background: var(--muted, #f4f4f5);
+        margin-bottom: 4px;
+        line-height: 1.35;
+      }
+      .t small {
+        display: block;
+        color: var(--muted-foreground, #666);
+        font-size: 10.5px;
+      }
+      .t.orch {
+        background: transparent;
+        border: 1px dashed var(--border, #ccc);
+      }
+      .t.crit {
+        box-shadow: inset 3px 0 0 var(--primary, #5b5bd6);
+      }
+      .arrow {
+        align-self: center;
+        color: var(--muted-foreground, #999);
+        font-size: 12px;
+        flex: none;
+        margin: 0 -3px;
+      }
+      .legend {
+        display: flex;
+        gap: 16px;
+        font-size: 11.5px;
+        color: var(--muted-foreground, #666);
+        margin: 4px 0 16px;
+        flex-wrap: wrap;
+      }
+      .legend span {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .sw {
+        width: 14px;
+        height: 12px;
+        border-radius: 3px;
+        background: var(--muted, #f4f4f5);
+      }
+      .sw.o {
+        background: transparent;
+        border: 1px dashed var(--border, #ccc);
+      }
+      .sw.c {
+        box-shadow: inset 3px 0 0 var(--primary, #5b5bd6);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="legend">
+      <span><i class="sw"></i>builder sub-agent (own worktree)</span
+      ><span><i class="sw o"></i>orchestrator (main session)</span
+      ><span><i class="sw c"></i>critical path</span
+      ><span>each phase ends with a gate: review → app pass → patches → sync round-trip</span>
+    </div>
+
+    <div class="ph">
+      <h2>Phase 0 · Overlay scaffolding</h2>
+      <div class="g">6 agents · gate G0: empty overlay survives a real sync + build</div>
+      <div class="waves">
+        <div class="wave">
+          <div class="h"><span>Wave A</span><span>4 parallel</span></div>
+          <div class="t">P0.1 system-scope spike<small>explorer</small></div>
+          <div class="t">P0.2 patches round-trip spike</div>
+          <div class="t">P0.3 McpClient spike<small>explorer</small></div>
+          <div class="t crit">P0.4 fork-spaces package</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave">
+          <div class="h"><span>Wave B</span><span>2</span></div>
+          <div class="t crit">P0.5 fork migrations + event store</div>
+          <div class="t crit">P0.6 fork RPC + capabilities</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave">
+          <div class="h"><span>Wave C</span><span></span></div>
+          <div class="t orch crit">P0.7 seams as patches, merge driver, check-overlay.sh</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ph">
+      <h2>Phase 1 · Spaces</h2>
+      <div class="g">5 builders · gate G1</div>
+      <div class="waves">
+        <div class="wave" style="flex: 0.7">
+          <div class="h"><span>Freeze</span></div>
+          <div class="t orch crit">P1.0 Space contracts + stubs</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave" style="flex: 2">
+          <div class="h"><span>Wave B</span><span>5 parallel</span></div>
+          <div class="t crit">P1.A server domain</div>
+          <div class="t crit">P1.B client state</div>
+          <div class="t">P1.C web UI (fixtures)</div>
+          <div class="t">P1.D space_* MCP + evals</div>
+          <div class="t">P1.E turn-context service</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave" style="flex: 0.8">
+          <div class="h"><span>Integrate</span></div>
+          <div class="t orch crit">P1.I wire + seams + app pass</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ph">
+      <h2>Phase 2 · Sources, agentic loop, PR attention</h2>
+      <div class="g">17 builders · widest phase · gate G2 + a week of real use</div>
+      <div class="waves">
+        <div class="wave" style="flex: 0.6">
+          <div class="h"><span>Freeze</span></div>
+          <div class="t orch crit">
+            P2.0 Source, Connector, Signal, Watch, Inbox contracts + connector test kit
+          </div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave">
+          <div class="h"><span>Wave 2a</span><span>6</span></div>
+          <div class="t crit">C1 connector core</div>
+          <div class="t">S1 source domain</div>
+          <div class="t">S2 content + FTS</div>
+          <div class="t crit">A1 signal bus + router</div>
+          <div class="t">U1 sources UI</div>
+          <div class="t">U2 inbox UI</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave">
+          <div class="h"><span>Wave 2b</span><span>5</span></div>
+          <div class="t">C2 web</div>
+          <div class="t">C3 file</div>
+          <div class="t">C4 note</div>
+          <div class="t">C5 thread</div>
+          <div class="t crit">C6 change-request</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave">
+          <div class="h"><span>Wave 2c</span><span>6</span></div>
+          <div class="t">S3 sync reactor</div>
+          <div class="t">S4 agent context</div>
+          <div class="t">S5 sources_* MCP</div>
+          <div class="t crit">A2 PR me-watches</div>
+          <div class="t crit">A3 policy runner</div>
+          <div class="t">D1 discovery</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave" style="flex: 0.7">
+          <div class="h"><span>Integrate</span></div>
+          <div class="t orch crit">
+            P2.I wire, composer chip, app pass: PR comment → prepared reply → approve
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ph">
+      <h2>Phase 3 · Bridged connectors + reactions</h2>
+      <div class="g">7 builders · Jira and Confluence arrive as configuration</div>
+      <div class="waves">
+        <div class="wave">
+          <div class="h"><span>Wave 3a</span><span>4</span></div>
+          <div class="t">B1 MCP client</div>
+          <div class="t">B3 connectors + watches settings</div>
+          <div class="t">B4 t3.json sources</div>
+          <div class="t">R1 reactions</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave" style="flex: 0.8">
+          <div class="h"><span>Wave 3b</span><span>1</span></div>
+          <div class="t">B2 declarative bridge</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave" style="flex: 0.9">
+          <div class="h"><span>Wave 3c</span><span>2</span></div>
+          <div class="t">B5 query sources</div>
+          <div class="t">A4 bridged signals</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave" style="flex: 0.8">
+          <div class="h"><span>Integrate</span></div>
+          <div class="t orch">P3.I your Atlassian MCP</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ph">
+      <h2>Phase 4 · Steward, memory, actions</h2>
+      <div class="g">5 builders</div>
+      <div class="waves">
+        <div class="wave">
+          <div class="h"><span>Wave 4a</span><span>3</span></div>
+          <div class="t">ST1 steward</div>
+          <div class="t">M1 memory</div>
+          <div class="t">X1 actions as proposals</div>
+        </div>
+        <span class="arrow">→</span>
+        <div class="wave">
+          <div class="h"><span>Wave 4b</span><span>2</span></div>
+          <div class="t">X2 act level + guards</div>
+          <div class="t">X3 webhooks, settlesThread, vector seam</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

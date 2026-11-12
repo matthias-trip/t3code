@@ -1,0 +1,10 @@
+#!/bin/bash
+# Wrapper: runs vite-plus on the repo-pinned toolchain via mise (same as fork/lib.sh `toolchain`).
+set -euo pipefail
+TC=(mise exec node@26.12.1 pnpm@12.14.0 --)
+if [[ "${1:-}" == "i" || "${1:-}" == "install" ]]; then
+  shift; args=()
+  for a in "$@"; do [[ "$a" == "--" || "$a" == "--yes" ]] && continue; args+=("$a"); done
+  exec "${TC[@]}" pnpm install ${args[@]+"${args[@]}"}
+fi
+exec "${TC[@]}" pnpm exec vp "$@"

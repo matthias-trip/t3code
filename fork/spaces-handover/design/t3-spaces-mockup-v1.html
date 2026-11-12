@@ -1,0 +1,1967 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>T3 Code — Spaces &amp; Sources mockup</title>
+    <style>
+      /* Outer page follows the host theme; the app windows use T3 Code's dark tokens. */
+      body {
+        margin: 0;
+        font-family: var(
+          --font-sans,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif
+        );
+      }
+      .cap {
+        margin: 22px 0 8px;
+      }
+      .cap h2 {
+        font-size: 16px;
+        margin: 0 0 4px;
+        color: var(--foreground, #111);
+      }
+      .cap p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted-foreground, #666);
+      }
+      .cap b {
+        color: var(--foreground, #111);
+      }
+      .stage {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+      }
+      .scaler {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
+        width: 1120px;
+      }
+
+      .win {
+        --bg: #000;
+        --card: #0e0e0e;
+        --side: #0b0b0b;
+        --b: rgba(255, 255, 255, 0.08);
+        --b2: rgba(255, 255, 255, 0.12);
+        --fg: #f5f5f5;
+        --mut: #a3a3a3;
+        --dim: #6f6f6f;
+        --acc: rgba(255, 255, 255, 0.045);
+        --acc2: rgba(255, 255, 255, 0.08);
+        --pri: #6470f3;
+        --pri-s: rgba(100, 112, 243, 0.16);
+        --ok: #3fb950;
+        --ok-s: rgba(63, 185, 80, 0.14);
+        --warn: #d8a22a;
+        --warn-s: rgba(216, 162, 42, 0.14);
+        --bad: #f0605a;
+        --vio: #b58cf5;
+        --vio-s: rgba(181, 140, 245, 0.14);
+        width: 1120px;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        overflow: hidden;
+        font:
+          13px/1.45 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      }
+      .chrome {
+        height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--b);
+        background: var(--side);
+      }
+      .tl {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #3a3a3a;
+      }
+      .chrome .ttl {
+        flex: 1;
+        text-align: center;
+        color: var(--dim);
+        font-size: 12px;
+        margin-right: 50px;
+      }
+      .body {
+        display: flex;
+        min-height: 700px;
+      }
+      .body.tall {
+        height: 900px;
+      }
+      .side {
+        width: 262px;
+        flex: none;
+        background: var(--side);
+        border-right: 1px solid var(--b);
+        display: flex;
+        flex-direction: column;
+        padding: 10px 8px;
+        gap: 2px;
+      }
+      .main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .rail {
+        width: 300px;
+        flex: none;
+        border-left: 1px solid var(--b);
+        background: var(--side);
+        padding: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 9px;
+        border: 1px solid var(--b2);
+        border-radius: 9px;
+        background: var(--acc);
+        margin-bottom: 6px;
+      }
+      .sicon {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 11px;
+        color: #fff;
+        flex: none;
+      }
+      .switch .nm {
+        font-weight: 600;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .switch .sub {
+        font-size: 11px;
+        color: var(--dim);
+        display: block;
+        font-weight: 400;
+      }
+      .chev {
+        color: var(--dim);
+        font-size: 11px;
+      }
+      .newbtn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 9px;
+        border-radius: 7px;
+        color: var(--mut);
+      }
+      .newbtn kbd {
+        margin-left: auto;
+        font:
+          11px ui-monospace,
+          monospace;
+        color: var(--dim);
+      }
+      .sec {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--dim);
+        padding: 12px 9px 4px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 9px;
+        border-radius: 7px;
+        color: var(--mut);
+        white-space: nowrap;
+      }
+      .row .t {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row.sel {
+        background: var(--acc2);
+        color: var(--fg);
+      }
+      .row .meta {
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: none;
+        background: var(--dim);
+      }
+      .dot.work {
+        background: var(--pri);
+        box-shadow: 0 0 0 3px var(--pri-s);
+      }
+      .dot.ok {
+        background: var(--ok);
+      }
+      .dot.warn {
+        background: var(--warn);
+      }
+      .steward {
+        color: var(--vio);
+      }
+      .pchip {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 5px;
+        background: var(--acc2);
+        color: var(--mut);
+      }
+      .side .foot {
+        margin-top: auto;
+        border-top: 1px solid var(--b);
+        padding-top: 8px;
+      }
+
+      .hdr {
+        padding: 14px 20px 0;
+        border-bottom: 1px solid var(--b);
+      }
+      .hdr h1 {
+        font-size: 18px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .hdr .line {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin: 8px 0 12px;
+        color: var(--dim);
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+      .tabs {
+        display: flex;
+        gap: 18px;
+      }
+      .tab {
+        padding: 8px 0;
+        color: var(--dim);
+        border-bottom: 2px solid transparent;
+      }
+      .tab.on {
+        color: var(--fg);
+        border-color: var(--fg);
+      }
+      .tab .n {
+        font-size: 11px;
+        color: var(--dim);
+        margin-left: 4px;
+      }
+      .content {
+        flex: 1;
+        overflow: hidden;
+        padding: 16px 20px;
+        display: grid;
+        gap: 14px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--b);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--mut);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .card h3 .r {
+        margin-left: auto;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+        color: var(--dim);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border-radius: 99px;
+        border: 1px solid var(--b2);
+        font-size: 11.5px;
+        color: var(--mut);
+        white-space: nowrap;
+      }
+      .chip.pri {
+        border-color: transparent;
+        background: var(--pri-s);
+        color: #aab1ff;
+      }
+      .chip.warn {
+        border-color: transparent;
+        background: var(--warn-s);
+        color: var(--warn);
+      }
+      .chip.ok {
+        border-color: transparent;
+        background: var(--ok-s);
+        color: var(--ok);
+      }
+      .chip.vio {
+        border-color: transparent;
+        background: var(--vio-s);
+        color: var(--vio);
+      }
+      .chip.off {
+        text-decoration: line-through;
+        color: var(--dim);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--b2);
+        font-size: 12px;
+        color: var(--fg);
+        background: var(--acc);
+      }
+      .btn.p {
+        background: var(--pri);
+        border-color: var(--pri);
+        color: #fff;
+      }
+      .btn.g {
+        border-color: transparent;
+        background: none;
+        color: var(--dim);
+      }
+      .cn {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        font-size: 9.5px;
+        font-weight: 800;
+        color: #fff;
+        flex: none;
+      }
+      .c-jira {
+        background: #2f6fdf;
+      }
+      .c-conf {
+        background: #1d4fa8;
+      }
+      .c-figma {
+        background: #a04de0;
+      }
+      .c-web {
+        background: #4a4a4a;
+      }
+      .c-note {
+        background: #7a5d1d;
+      }
+      .c-thread {
+        background: #2c6e57;
+      }
+      .c-gh {
+        background: #333;
+      }
+      .c-q {
+        background: #2f6fdf;
+      }
+      .c-sentry {
+        background: #5f3a8e;
+      }
+      .c-file {
+        background: #3c4a5c;
+      }
+      .src {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 0;
+        border-top: 1px solid var(--b);
+      }
+      .src:first-of-type {
+        border-top: 0;
+      }
+      .src .t {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .src .s {
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .inbox {
+        display: flex;
+        gap: 10px;
+        padding: 9px 0;
+        border-top: 1px solid var(--b);
+        align-items: flex-start;
+      }
+      .inbox:first-of-type {
+        border-top: 0;
+      }
+      .inbox .why {
+        font-size: 11.5px;
+        color: var(--dim);
+        margin-top: 2px;
+      }
+      .inbox .acts {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        flex: none;
+      }
+      .rule {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 7px 0;
+        border-top: 1px solid var(--b);
+      }
+      .rule:first-of-type {
+        border-top: 0;
+      }
+      .rule .w {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--vio);
+        width: 42px;
+        flex: none;
+      }
+      .rule .t {
+        flex: 1;
+      }
+      .rule .s {
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .tog {
+        width: 26px;
+        height: 15px;
+        border-radius: 99px;
+        background: var(--pri);
+        position: relative;
+        flex: none;
+      }
+      .tog::after {
+        content: "";
+        position: absolute;
+        right: 2px;
+        top: 2px;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .tog.offt {
+        background: #333;
+      }
+      .tog.offt::after {
+        right: auto;
+        left: 2px;
+      }
+      .mem {
+        padding: 6px 0;
+        border-top: 1px solid var(--b);
+        font-size: 12.5px;
+      }
+      .mem:first-of-type {
+        border-top: 0;
+      }
+      .mem .s {
+        display: block;
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 14px;
+        align-content: start;
+      }
+      .col {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+      .brief {
+        color: var(--mut);
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+      .brief b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+
+      /* thread view */
+      .thdr {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--b);
+      }
+      .thdr .top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .thdr .top b {
+        font-size: 15px;
+        white-space: nowrap;
+      }
+      .strip {
+        display: flex;
+        gap: 6px;
+        margin-top: 9px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .strip .lbl {
+        font-size: 11px;
+        color: var(--dim);
+        margin-right: 2px;
+      }
+      .org {
+        font-size: 9.5px;
+        color: var(--dim);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .banner {
+        margin: 12px 20px 0;
+        padding: 9px 12px;
+        border-radius: 9px;
+        background: var(--warn-s);
+        border: 1px solid rgba(216, 162, 42, 0.3);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-size: 12.5px;
+      }
+      .banner .acts {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        flex: none;
+      }
+      .convo {
+        flex: 1;
+        padding: 14px 20px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .umsg {
+        align-self: flex-end;
+        max-width: 520px;
+        background: var(--acc2);
+        padding: 9px 12px;
+        border-radius: 12px;
+      }
+      .ref {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 6px;
+        border-radius: 5px;
+        background: var(--pri-s);
+        color: #aab1ff;
+        font-size: 12px;
+      }
+      .tool {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .tool code {
+        font:
+          11.5px ui-monospace,
+          monospace;
+        color: var(--mut);
+      }
+      .tool .ok {
+        color: var(--ok);
+        white-space: nowrap;
+      }
+      .amsg {
+        color: var(--fg);
+        line-height: 1.6;
+        max-width: 640px;
+      }
+      .cite {
+        display: inline-block;
+        font-size: 10.5px;
+        padding: 0 5px;
+        border-radius: 4px;
+        background: var(--acc2);
+        color: var(--mut);
+        vertical-align: 1px;
+      }
+      .sugg {
+        border: 1px dashed rgba(181, 140, 245, 0.45);
+        background: var(--vio-s);
+        border-radius: 10px;
+        padding: 10px 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        align-items: center;
+        max-width: 660px;
+      }
+      .sugg > div {
+        flex: 1 1 380px;
+      }
+      .composer {
+        margin: 0 20px 16px;
+        border: 1px solid var(--b2);
+        border-radius: 12px;
+        background: var(--card);
+        padding: 10px 12px;
+        position: relative;
+      }
+      .composer .ph {
+        color: var(--mut);
+      }
+      .composer .bar {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        align-items: center;
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .composer .send {
+        margin-left: auto;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--fg);
+        color: #000;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+      }
+      .pop {
+        position: absolute;
+        left: 150px;
+        bottom: 62px;
+        width: 360px;
+        background: #141414;
+        border: 1px solid var(--b2);
+        border-radius: 10px;
+        padding: 6px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+      }
+      .pop .h {
+        font-size: 10.5px;
+        color: var(--dim);
+        padding: 4px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .pop .it {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 8px;
+        border-radius: 6px;
+      }
+      .pop .it.on {
+        background: var(--acc2);
+      }
+      .pop .it .s {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .rail h4 {
+        margin: 0;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--dim);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        display: flex;
+        justify-content: space-between;
+      }
+      .rsrc {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        padding: 6px 0;
+      }
+      .rsrc .t {
+        flex: 1;
+        min-width: 0;
+      }
+      .rsrc .t div {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rsrc .s {
+        font-size: 11px;
+        color: var(--dim);
+      }
+
+      /* settings */
+      .set {
+        display: flex;
+        height: 690px;
+      }
+      .snav {
+        width: 220px;
+        flex: none;
+        background: var(--side);
+        border-right: 1px solid var(--b);
+        padding: 14px 8px;
+      }
+      .snav .it {
+        padding: 6px 10px;
+        border-radius: 7px;
+        color: var(--mut);
+      }
+      .snav .it.on {
+        background: var(--acc2);
+        color: var(--fg);
+      }
+      .sbody {
+        flex: 1;
+        min-width: 0;
+        padding: 18px 24px;
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+      .sbody h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+      .conn {
+        display: grid;
+        grid-template-columns: 22px 170px 1fr 160px 28px;
+        gap: 12px;
+        align-items: center;
+        padding: 9px 0;
+        border-top: 1px solid var(--b);
+      }
+      .conn:first-of-type {
+        border-top: 0;
+      }
+      .caps {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .cap2 {
+        font-size: 10.5px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--acc2);
+        color: var(--mut);
+      }
+      .cap2.no {
+        background: none;
+        color: #444;
+        text-decoration: line-through;
+      }
+      pre.cfg {
+        margin: 0;
+        white-space: pre-wrap;
+        background: #0a0a0a;
+        border: 1px solid var(--b);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font:
+          11.5px/1.5 ui-monospace,
+          monospace;
+        color: var(--mut);
+        overflow: hidden;
+      }
+      pre.cfg .k {
+        color: #aab1ff;
+      }
+      pre.cfg .v {
+        color: #9fd99f;
+      }
+      pre.cfg .c {
+        color: #555;
+      }
+
+      /* inbox */
+      .ibx {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+      }
+      .ilist {
+        width: 390px;
+        flex: none;
+        border-right: 1px solid var(--b);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .ihdr {
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid var(--b);
+      }
+      .ihdr h1 {
+        font-size: 18px;
+        margin: 0 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .filters {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .igrp {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--dim);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 10px 16px 4px;
+      }
+      .item {
+        display: flex;
+        gap: 10px;
+        padding: 9px 16px;
+        border-left: 2px solid transparent;
+      }
+      .item.sel {
+        background: var(--acc2);
+        border-left-color: var(--pri);
+      }
+      .item .b {
+        flex: 1;
+        min-width: 0;
+      }
+      .item .l1 {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .item .l1 b {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .item .l1 .tm {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--dim);
+        flex: none;
+      }
+      .item .l2 {
+        font-size: 12px;
+        color: var(--mut);
+        margin-top: 2px;
+      }
+      .item .l3 {
+        display: flex;
+        gap: 5px;
+        margin-top: 5px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .pol {
+        font:
+          10.5px ui-monospace,
+          monospace;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--acc2);
+        color: var(--mut);
+      }
+      .pol.prepare {
+        background: var(--pri-s);
+        color: #aab1ff;
+      }
+      .pol.brief {
+        background: var(--vio-s);
+        color: var(--vio);
+      }
+      .pol.notify {
+        color: var(--dim);
+      }
+      .spin {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid var(--pri);
+        border-right-color: transparent;
+        display: inline-block;
+      }
+      .idet {
+        flex: 1;
+        min-width: 0;
+        padding: 14px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow: hidden;
+      }
+      .idet h2 {
+        margin: 0;
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .route {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: 11.5px;
+        color: var(--dim);
+        align-items: center;
+      }
+      .cmt {
+        border: 1px solid var(--b);
+        border-radius: 9px;
+        background: var(--card);
+        padding: 9px 11px;
+        display: grid;
+        gap: 6px;
+      }
+      .cmt .q {
+        font-size: 12px;
+        color: var(--mut);
+      }
+      .cmt .q b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .cmt .a {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        font-size: 12.5px;
+      }
+      .cls {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 1px 6px;
+        border-radius: 4px;
+        flex: none;
+      }
+      .cls.fix {
+        background: var(--ok-s);
+        color: var(--ok);
+      }
+      .cls.nit {
+        background: var(--acc2);
+        color: var(--mut);
+      }
+      .cls.push {
+        background: var(--warn-s);
+        color: var(--warn);
+      }
+      .sha {
+        font:
+          11px ui-monospace,
+          monospace;
+        color: var(--ok);
+      }
+      .acts2 {
+        display: flex;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 8px;
+        border-top: 1px solid var(--b);
+        align-items: center;
+      }
+      .wtable {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 5px 10px;
+        font-size: 12px;
+        color: var(--mut);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============ SCREEN 1: SPACE HOME ============ -->
+    <div class="cap">
+      <h2>1 · Space home</h2>
+      <p>
+        The space switcher replaces "all projects" at the top of the sidebar. Threads from
+        <b>two repos</b> sit together. The <b>Space steward</b> is a pinned background agent: it
+        posts suggestions, keeps the memory, and runs the reactions. The <b>Inbox</b> card is the
+        shared inbox (screen 4), filtered to this space.
+      </p>
+    </div>
+    <div class="stage">
+      <div class="scaler">
+        <div class="win">
+          <div class="chrome">
+            <span class="tl"></span><span class="tl"></span><span class="tl"></span
+            ><span class="ttl">T3 Code</span>
+          </div>
+          <div class="body">
+            <aside class="side">
+              <div class="switch">
+                <span class="sicon" style="background: #6470f3">PR</span
+                ><span class="nm"
+                  >Payments retry redesign<span class="sub"
+                    >Space · 2 projects · 17 sources</span
+                  ></span
+                ><span class="chev">▾</span>
+              </div>
+              <div class="newbtn">＋ New thread in space <kbd>⌘N</kbd></div>
+              <div class="row">
+                <span style="width: 14px; text-align: center">▤</span><span class="t">Inbox</span
+                ><span class="chip pri" style="padding: 0 7px">6</span>
+              </div>
+              <div class="sec">Working</div>
+              <div class="row">
+                <span class="dot work"></span><span class="t">Add retry backoff</span
+                ><span class="pchip">payments-svc</span>
+              </div>
+              <div class="sec">Pinned</div>
+              <div class="row sel">
+                <span class="dot" style="background: var(--vio)"></span
+                ><span class="t steward">✦ Space steward</span><span class="meta">3 new</span>
+              </div>
+              <div class="sec">Active</div>
+              <div class="row">
+                <span class="dot ok"></span><span class="t">Idempotency key audit</span
+                ><span class="pchip">payments-svc</span>
+              </div>
+              <div class="row">
+                <span class="dot"></span><span class="t">Retry status banner</span
+                ><span class="pchip">checkout-web</span>
+              </div>
+              <div class="row">
+                <span class="dot warn"></span><span class="t">Plan: ABC-131 dead-letter UI</span
+                ><span class="pchip vio" style="background: var(--vio-s); color: var(--vio)"
+                  >reaction</span
+                >
+              </div>
+              <div class="row">
+                <span class="dot"></span><span class="t">DLQ alarm thresholds</span
+                ><span class="pchip">infra</span>
+              </div>
+              <div class="sec">Snoozed <span>1</span></div>
+              <div class="sec">Settled <span>6</span></div>
+              <div class="foot"><div class="row">⚙ Settings</div></div>
+            </aside>
+            <section class="main">
+              <div class="hdr">
+                <h1>
+                  <span class="sicon" style="background: #6470f3; width: 26px; height: 26px"
+                    >PR</span
+                  >Payments retry redesign
+                </h1>
+                <div class="line">
+                  Projects <span class="chip">payments-service</span
+                  ><span class="chip">checkout-web</span><span class="chip">infra</span
+                  ><span class="chip">＋</span> <span style="margin-left: 10px">Default model</span
+                  ><span class="chip">Claude Opus</span>
+                </div>
+                <div class="tabs">
+                  <span class="tab on">Overview</span
+                  ><span class="tab">Sources<span class="n">17</span></span
+                  ><span class="tab">Threads<span class="n">11</span></span
+                  ><span class="tab">Reactions<span class="n">3</span></span
+                  ><span class="tab">Memory<span class="n">24</span></span>
+                </div>
+              </div>
+              <div class="content">
+                <div class="g2">
+                  <div class="col">
+                    <div class="card">
+                      <h3>
+                        Inbox · this space <span class="chip vio">3 suggestions</span
+                        ><span class="r">reviewed by you · nothing is applied without a click</span>
+                      </h3>
+                      <div class="inbox">
+                        <span class="cn c-jira">J</span>
+                        <div>
+                          <div><b>Link ABC-456</b> "Retry metrics dashboard"</div>
+                          <div class="why">
+                            An agent in <u>Add retry backoff</u> read it twice through the Atlassian
+                            MCP. It is in epic ABC-100.
+                          </div>
+                        </div>
+                        <div class="acts">
+                          <span class="btn p">Link to space</span><span class="btn g">Dismiss</span>
+                        </div>
+                      </div>
+                      <div class="inbox">
+                        <span class="cn c-conf">C</span>
+                        <div>
+                          <div><b>Tech design v2 changed</b>: §4.2 Backoff policy</div>
+                          <div class="why">
+                            Max attempts went from 8 to 5. 2 threads pin this doc, and
+                            <u>Add retry backoff</u> already implements 8.
+                          </div>
+                        </div>
+                        <div class="acts">
+                          <span class="btn">View delta</span><span class="btn p">Tell threads</span>
+                        </div>
+                      </div>
+                      <div class="inbox">
+                        <span class="cn c-web">W</span>
+                        <div>
+                          <div><b>Unlink</b> "Stripe idempotency (2019)"</div>
+                          <div class="why">
+                            A newer page covers it. No thread read it in 30 days.
+                          </div>
+                        </div>
+                        <div class="acts">
+                          <span class="btn">Unlink</span><span class="btn g">Keep</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h3>Sources <span class="r">pinned first · live status</span></h3>
+                      <div class="src">
+                        <span class="cn c-jira">J</span
+                        ><span class="t">ABC-123 Event-driven payment retry</span
+                        ><span class="chip pri">pinned</span
+                        ><span class="chip ok">In progress</span>
+                      </div>
+                      <div class="src">
+                        <span class="cn c-q">Q</span
+                        ><span class="t"
+                          >Query · <code style="font-size: 11.5px">epic = ABC-100</code>
+                          <span class="s">· 8 issues, live</span></span
+                        ><span class="chip vio">+2 new</span>
+                      </div>
+                      <div class="src">
+                        <span class="cn c-conf">C</span
+                        ><span class="t">Payments retry – tech design v2</span
+                        ><span class="chip warn">changed 2h</span>
+                      </div>
+                      <div class="src">
+                        <span class="cn c-note">N</span
+                        ><span class="t"
+                          >Decisions log <span class="s">· kept by the steward</span></span
+                        ><span class="s">updated 1h</span>
+                      </div>
+                      <div class="src">
+                        <span class="cn c-figma">F</span
+                        ><span class="t">Retry states – checkout flows</span
+                        ><span class="s">Figma</span>
+                      </div>
+                      <div class="src">
+                        <span class="cn c-sentry">S</span
+                        ><span class="t">Issue PAY-9F2 "RetryExhausted"</span
+                        ><span class="chip warn">412 events / 24h</span>
+                      </div>
+                      <div class="src">
+                        <span class="cn c-thread">T</span><span class="t">Spike: queue choice</span
+                        ><span class="s">settled thread</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col">
+                    <div class="card">
+                      <h3>Brief</h3>
+                      <div class="brief">
+                        Replace the cron retry with <b>event-driven retries</b> on SQS FIFO. Keep
+                        idempotency keys end-to-end. Ship behind <b>pay_retry_v2</b>. Out of scope:
+                        refunds.
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h3>Reactions <span class="r">agent runs on source events</span></h3>
+                      <div class="rule">
+                        <span class="w">WHEN</span>
+                        <div class="t">
+                          Issue joins <code>epic = ABC-100</code>
+                          <div class="s">
+                            → new thread, worktree, prompt "Draft a plan for {source}"
+                          </div>
+                        </div>
+                        <span class="tog"></span>
+                      </div>
+                      <div class="rule">
+                        <span class="w">WHEN</span>
+                        <div class="t">
+                          A pinned doc changes
+                          <div class="s">
+                            → delta goes into the pinning threads' next turn, and the steward flags
+                            any conflict
+                          </div>
+                        </div>
+                        <span class="tog"></span>
+                      </div>
+                      <div class="rule">
+                        <span class="w">WHEN</span>
+                        <div class="t">
+                          Sentry issue passes 500 events/day
+                          <div class="s">→ steward investigates and posts its findings</div>
+                        </div>
+                        <span class="tog offt"></span>
+                      </div>
+                      <div class="rule">
+                        <span class="w">EVERY</span>
+                        <div class="t">
+                          Weekday 09:00
+                          <div class="s">→ steward digest: what changed, what's blocked</div>
+                        </div>
+                        <span class="tog"></span>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h3>Memory <span class="r">distilled from settled threads</span></h3>
+                      <div class="mem">
+                        Decision: SQS FIFO over Kafka for retries<span class="s"
+                          >from <u>Spike: queue choice</u> · 3 Nov · cites tech design §3</span
+                        >
+                      </div>
+                      <div class="mem">
+                        Gotcha: legacy cron must stay off when the flag is on<span class="s"
+                          >from <u>Idempotency key audit</u> · 9 Nov</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SCREEN 2: THREAD ============ -->
+    <div class="cap">
+      <h2>2 · A thread inside the space</h2>
+      <p>
+        The header strip shows each <b>effective source</b> and where it is inherited from. The
+        agent <b>queries sources with tools</b>. It doesn't get everything at once. It gets told
+        when a pinned source changed under it, and it can <b>suggest</b> new sources.
+      </p>
+    </div>
+    <div class="stage">
+      <div class="scaler">
+        <div class="win">
+          <div class="chrome">
+            <span class="tl"></span><span class="tl"></span><span class="tl"></span
+            ><span class="ttl">T3 Code</span>
+          </div>
+          <div class="body tall">
+            <aside class="side">
+              <div class="switch">
+                <span class="sicon" style="background: #6470f3">PR</span
+                ><span class="nm"
+                  >Payments retry redesign<span class="sub"
+                    >Space · 2 projects · 17 sources</span
+                  ></span
+                ><span class="chev">▾</span>
+              </div>
+              <div class="newbtn">＋ New thread in space <kbd>⌘N</kbd></div>
+              <div class="row">
+                <span style="width: 14px; text-align: center">▤</span><span class="t">Inbox</span
+                ><span class="chip pri" style="padding: 0 7px">6</span>
+              </div>
+              <div class="sec">Working</div>
+              <div class="row sel">
+                <span class="dot work"></span><span class="t">Add retry backoff</span
+                ><span class="pchip">payments-svc</span>
+              </div>
+              <div class="sec">Pinned</div>
+              <div class="row">
+                <span class="dot" style="background: var(--vio)"></span
+                ><span class="t steward">✦ Space steward</span><span class="meta">3 new</span>
+              </div>
+              <div class="sec">Active</div>
+              <div class="row">
+                <span class="dot ok"></span><span class="t">Idempotency key audit</span
+                ><span class="pchip">payments-svc</span>
+              </div>
+              <div class="row">
+                <span class="dot"></span><span class="t">Retry status banner</span
+                ><span class="pchip">checkout-web</span>
+              </div>
+              <div class="row">
+                <span class="dot warn"></span><span class="t">Plan: ABC-131 dead-letter UI</span
+                ><span class="pchip" style="background: var(--vio-s); color: var(--vio)"
+                  >reaction</span
+                >
+              </div>
+              <div class="row">
+                <span class="dot"></span><span class="t">DLQ alarm thresholds</span
+                ><span class="pchip">infra</span>
+              </div>
+              <div class="sec">Snoozed <span>1</span></div>
+              <div class="sec">Settled <span>6</span></div>
+              <div class="foot"><div class="row">⚙ Settings</div></div>
+            </aside>
+            <section class="main">
+              <div class="thdr">
+                <div class="top">
+                  <b>Add retry backoff</b><span class="chip">⎇ mt/retry-backoff</span
+                  ><span class="chip ok">PR #482 · checks ✓</span
+                  ><span style="margin-left: auto" class="chip">Claude Opus</span>
+                </div>
+                <div class="strip">
+                  <span class="lbl">Sources</span>
+                  <span class="chip pri"
+                    ><span class="cn c-jira" style="width: 14px; height: 14px; font-size: 8px"
+                      >J</span
+                    >ABC-123 <span class="org">space · pinned</span></span
+                  >
+                  <span class="chip warn"
+                    ><span class="cn c-conf" style="width: 14px; height: 14px; font-size: 8px"
+                      >C</span
+                    >Tech design v2 <span class="org">space</span></span
+                  >
+                  <span class="chip"
+                    ><span class="cn c-file" style="width: 14px; height: 14px; font-size: 8px"
+                      >F</span
+                    >docs/adr/007-retries.md <span class="org">project</span></span
+                  >
+                  <span class="chip"
+                    ><span class="cn c-sentry" style="width: 14px; height: 14px; font-size: 8px"
+                      >S</span
+                    >PAY-9F2 <span class="org">thread</span></span
+                  >
+                  <span class="chip off">Stripe docs (2019)</span>
+                  <span class="chip">＋ Link · 12 more</span>
+                </div>
+              </div>
+              <div class="banner">
+                <span>⚠</span>
+                <div>
+                  <b>Tech design v2 changed after this thread started.</b> §4.2 now says max
+                  <b>5</b> attempts (was 8). The delta goes into your next message.
+                </div>
+                <div class="acts">
+                  <span class="btn">View delta</span><span class="btn g">Don't include</span>
+                </div>
+              </div>
+              <div class="convo">
+                <div class="umsg">
+                  Implement the backoff from the design for <span class="ref">J ABC-123</span>. Keep
+                  the cron path untouched.
+                </div>
+                <div class="tool">
+                  ⌕ <code>sources_search "backoff policy max attempts"</code>
+                  <span class="ok">3 hits</span> · tech design §4.2 · ADR-007 · ABC-123 AC#3
+                </div>
+                <div class="tool">
+                  ▤ <code>sources_read Tech design v2 §4.2</code> ·
+                  <code>sources_read ABC-123 acceptance criteria</code>
+                </div>
+                <div class="tool">
+                  ✎ Edited <code>retry/policy.ts</code>, <code>retry/policy.test.ts</code>
+                  <span class="ok">+84 −12</span>
+                </div>
+                <div class="amsg">
+                  Done: jittered exponential backoff, base 2s, cap 5 attempts
+                  <span class="cite">tech design §4.2</span>. Exhausted messages go to the DLQ with
+                  the original idempotency key <span class="cite">ABC-123 AC#3</span>
+                  <span class="cite">ADR-007</span>. The cron path is unchanged, guarded by
+                  <code>pay_retry_v2</code> as the space memory notes.
+                </div>
+                <div class="sugg">
+                  <span class="cn c-conf">C</span>
+                  <div>
+                    <div><b>Suggest source:</b> "Postmortem 4411 – retry storm"</div>
+                    <div style="font-size: 11.5px; color: var(--dim)">
+                      Linked from ABC-123's comments. It explains why the cap matters. Suggested by
+                      the agent via <code>sources_suggest</code>.
+                    </div>
+                  </div>
+                  <span class="btn p">Link to space</span><span class="btn">This thread</span
+                  ><span class="btn g">Dismiss</span>
+                </div>
+              </div>
+              <div class="composer">
+                <div class="ph">
+                  Also add the metric from <span class="ref">@</span
+                  ><span style="border-right: 1.5px solid var(--fg); margin-left: 1px">da</span>
+                </div>
+                <div class="bar">
+                  <span>＋</span><span>Claude Opus · High</span><span>Full access</span
+                  ><span class="send">↑</span>
+                </div>
+                <div class="pop">
+                  <div class="h">Sources in this thread</div>
+                  <div class="it on">
+                    <span class="cn c-jira">J</span>ABC-456 Retry metrics dashboard<span class="s"
+                      >suggested</span
+                    >
+                  </div>
+                  <div class="it">
+                    <span class="cn c-figma">F</span>Retry states – dashboard frame<span class="s"
+                      >space</span
+                    >
+                  </div>
+                  <div class="h">Search connectors</div>
+                  <div class="it">
+                    <span class="cn c-conf">C</span>"dashboard" in Confluence ENG<span class="s"
+                      >↵ search</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </section>
+            <aside class="rail">
+              <h4>Context for this turn <span>~1.9 KB</span></h4>
+              <div class="card" style="padding: 10px 12px">
+                <div style="font-size: 11px; color: var(--dim); margin-bottom: 6px">
+                  What the agent sees up front
+                </div>
+                <div class="rsrc">
+                  <span class="cn c-note">B</span>
+                  <div class="t">
+                    <div>Space brief</div>
+                    <div class="s">always</div>
+                  </div>
+                </div>
+                <div class="rsrc">
+                  <span class="cn c-jira">J</span>
+                  <div class="t">
+                    <div>ABC-123 · excerpt</div>
+                    <div class="s">pinned · 640 chars</div>
+                  </div>
+                </div>
+                <div class="rsrc">
+                  <span class="cn c-conf">C</span>
+                  <div class="t">
+                    <div>Tech design v2 · delta only</div>
+                    <div class="s">changed since last turn</div>
+                  </div>
+                </div>
+                <div class="rsrc">
+                  <span class="cn c-note">N</span>
+                  <div class="t">
+                    <div>Memory · 3 relevant facts</div>
+                    <div class="s">matched to your message</div>
+                  </div>
+                </div>
+                <div class="rsrc">
+                  <span class="cn c-web">≡</span>
+                  <div class="t">
+                    <div>Manifest of 13 other sources</div>
+                    <div class="s">titles only · read with tools</div>
+                  </div>
+                </div>
+              </div>
+              <h4>Activity</h4>
+              <div style="font-size: 12px; color: var(--mut); display: grid; gap: 7px">
+                <div>
+                  <span style="color: var(--vio)">✦ steward</span> flagged a conflict: design says
+                  5, code said 8 <span style="color: var(--dim)">· 2h</span>
+                </div>
+                <div>
+                  <span style="color: var(--dim)">reaction</span> PAY-9F2 linked here when you
+                  mentioned "RetryExhausted" <span style="color: var(--dim)">· 3h</span>
+                </div>
+                <div>
+                  <span style="color: var(--dim)">sync</span> ABC-123 moved to In progress
+                  <span style="color: var(--dim)">· 1d</span>
+                </div>
+              </div>
+              <h4>When this thread settles</h4>
+              <div class="card" style="padding: 10px 12px; font-size: 12px; color: var(--mut)">
+                The steward distils its decisions into <b style="color: var(--fg)">Memory</b>,
+                citing this thread, and asks to move ABC-123 to
+                <b style="color: var(--fg)">In review</b> through your Jira MCP.
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SCREEN 3: CONNECTORS ============ -->
+    <div class="cap">
+      <h2>3 · Settings → Connectors</h2>
+      <p>
+        Every source type is a connector. <b>Built-in</b> ones ship with T3. <b>Bridged</b> ones are
+        declared on top of an MCP server you already run, with no code. <b>Packages</b> cover deep
+        integrations. The UI and agents read <b>capabilities</b>, never the connector's name.
+      </p>
+    </div>
+    <div class="stage">
+      <div class="scaler">
+        <div class="win">
+          <div class="chrome">
+            <span class="tl"></span><span class="tl"></span><span class="tl"></span
+            ><span class="ttl">T3 Code — Settings</span>
+          </div>
+          <div class="set">
+            <nav class="snav">
+              <div class="it">General</div>
+              <div class="it">Providers</div>
+              <div class="it">Source control</div>
+              <div class="it on">Connectors</div>
+              <div class="it">Spaces</div>
+              <div class="it">Secrets</div>
+              <div class="it">Sharing &amp; access</div>
+            </nav>
+            <div class="sbody">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <h1>Connectors</h1>
+                <span style="margin-left: auto" class="btn">Import from t3.json</span
+                ><span class="btn p">＋ Add connector</span>
+              </div>
+              <div class="card">
+                <h3>Built-in</h3>
+                <div class="conn">
+                  <span class="cn c-web">W</span><b>Web page</b>
+                  <div class="caps">
+                    <span class="cap2">snapshot</span><span class="cap2">content</span
+                    ><span class="cap2">search·cached</span><span class="cap2">watch·poll</span>
+                  </div>
+                  <span style="color: var(--dim); font-size: 12px">any http(s) URL</span
+                  ><span class="tog"></span>
+                </div>
+                <div class="conn">
+                  <span class="cn c-file">F</span><b>Project files</b>
+                  <div class="caps">
+                    <span class="cap2">content</span><span class="cap2">children</span
+                    ><span class="cap2">watch·fs</span>
+                  </div>
+                  <span style="color: var(--dim); font-size: 12px">paths &amp; globs</span
+                  ><span class="tog"></span>
+                </div>
+                <div class="conn">
+                  <span class="cn c-gh">GH</span><b>Change requests</b>
+                  <div class="caps">
+                    <span class="cap2">snapshot</span><span class="cap2">content</span
+                    ><span class="cap2">search·native</span><span class="cap2">watch</span>
+                  </div>
+                  <span style="color: var(--dim); font-size: 12px">via Source control</span
+                  ><span class="tog"></span>
+                </div>
+                <div class="conn">
+                  <span class="cn c-thread">T</span><b>Threads · Notes · Memory</b>
+                  <div class="caps">
+                    <span class="cap2">content</span><span class="cap2">search·cached</span
+                    ><span class="cap2">write·agent</span>
+                  </div>
+                  <span style="color: var(--dim); font-size: 12px">T3-native</span
+                  ><span class="tog"></span>
+                </div>
+              </div>
+              <div class="card">
+                <h3>
+                  Bridged from MCP servers <span class="r">reads as the environment's account</span>
+                </h3>
+                <div class="conn">
+                  <span class="cn c-jira">J</span>
+                  <div>
+                    <b>Jira</b>
+                    <div style="font-size: 11px; color: var(--dim)">
+                      atlassian MCP · m.trip@acme
+                    </div>
+                  </div>
+                  <div class="caps">
+                    <span class="cap2">snapshot</span><span class="cap2">content</span
+                    ><span class="cap2">search·native</span><span class="cap2">children</span
+                    ><span class="cap2">watch·poll</span><span class="cap2">actions</span>
+                  </div>
+                  <span class="chip ok">142 sources · ok</span><span class="tog"></span>
+                </div>
+                <div class="conn">
+                  <span class="cn c-conf">C</span>
+                  <div>
+                    <b>Confluence</b>
+                    <div style="font-size: 11px; color: var(--dim)">
+                      atlassian MCP · m.trip@acme
+                    </div>
+                  </div>
+                  <div class="caps">
+                    <span class="cap2">snapshot</span><span class="cap2">content</span
+                    ><span class="cap2">search·native</span><span class="cap2">children</span>
+                  </div>
+                  <span class="chip ok">38 sources · ok</span><span class="tog"></span>
+                </div>
+                <div class="conn">
+                  <span class="cn c-sentry">S</span>
+                  <div>
+                    <b>Sentry</b>
+                    <div style="font-size: 11px; color: var(--dim)">sentry MCP · resources</div>
+                  </div>
+                  <div class="caps">
+                    <span class="cap2">snapshot</span><span class="cap2">content</span
+                    ><span class="cap2 no">search</span><span class="cap2">watch·poll</span>
+                  </div>
+                  <span class="chip warn">token expires in 3d</span><span class="tog"></span>
+                </div>
+                <div class="conn">
+                  <span class="cn c-figma">F</span>
+                  <div>
+                    <b>Figma</b>
+                    <div style="font-size: 11px; color: var(--dim)">package · connector-figma</div>
+                  </div>
+                  <div class="caps">
+                    <span class="cap2">snapshot</span><span class="cap2">content·frames</span
+                    ><span class="cap2">watch·webhook</span>
+                  </div>
+                  <span class="chip">6 sources</span><span class="tog"></span>
+                </div>
+              </div>
+              <div class="card">
+                <h3>
+                  Jira · mapping
+                  <span class="r"
+                    >test with a URL:
+                    <span class="chip" style="margin-left: 4px"
+                      >acme.atlassian.net/browse/ABC-123 → ✓ resolved</span
+                    ></span
+                  >
+                </h3>
+                <pre
+                  class="cfg"
+                ><span class="k">match</span>    <span class="v">^https://([a-z0-9-]+)\.atlassian\.net/browse/([A-Z][A-Z0-9]+-\d+)</span>   <span class="c">→ jira://$1/$2</span>
+<span class="k">resolve</span>  getJiraIssue { issueIdOrKey: $2 }   title=fields.summary  status=fields.status.name  <span class="c">Done→done · In Progress→active · *→open</span>
+<span class="k">search</span>   searchJiraIssuesUsingJql { jql: "text ~ \"{query}\"" }      <span class="k">query sources</span>  jql: {expression}  <span class="c">→ live collection</span>
+<span class="k">actions</span>  transition, comment   <span class="c">→ offered to agents as proposals; you approve each one</span></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SCREEN 4: INBOX ============ -->
+    <div class="cap">
+      <h2>4 · Inbox: watching what needs a reaction</h2>
+      <p>
+        <b>Me-watches</b> follow review requests, comments on my PRs, CI, assignments, and mentions
+        across every repo. Each signal goes to the thread or space that already has the context. A
+        policy decides how far the agent goes: <b>notify</b>, <b>brief</b>, or <b>prepare</b> (work
+        done in a worktree, held for approval). Nothing is published until you approve it.
+      </p>
+    </div>
+    <div class="stage">
+      <div class="scaler">
+        <div class="win">
+          <div class="chrome">
+            <span class="tl"></span><span class="tl"></span><span class="tl"></span
+            ><span class="ttl">T3 Code</span>
+          </div>
+          <div class="body" style="height: 900px">
+            <aside class="side">
+              <div class="switch">
+                <span class="sicon" style="background: #333">∗</span
+                ><span class="nm">All work<span class="sub">3 spaces · 41 threads</span></span
+                ><span class="chev">▾</span>
+              </div>
+              <div class="newbtn">＋ New thread <kbd>⌘N</kbd></div>
+              <div class="row sel">
+                <span style="width: 14px; text-align: center">▤</span><span class="t">Inbox</span
+                ><span class="chip pri" style="padding: 0 7px">6</span>
+              </div>
+              <div class="sec">Spaces</div>
+              <div class="row">
+                <span
+                  class="sicon"
+                  style="background: #6470f3; width: 16px; height: 16px; font-size: 8px"
+                  >PR</span
+                ><span class="t">Payments retry redesign</span><span class="meta">4</span>
+              </div>
+              <div class="row">
+                <span
+                  class="sicon"
+                  style="background: #2c6e57; width: 16px; height: 16px; font-size: 8px"
+                  >OB</span
+                ><span class="t">Onboarding v3</span><span class="meta">1</span>
+              </div>
+              <div class="row">
+                <span
+                  class="sicon"
+                  style="background: #7a5d1d; width: 16px; height: 16px; font-size: 8px"
+                  >IN</span
+                ><span class="t">On-call week 46</span><span class="meta"></span>
+              </div>
+              <div class="sec">Working</div>
+              <div class="row">
+                <span class="dot work"></span><span class="t">Address review on #482</span
+                ><span class="pchip">payments-svc</span>
+              </div>
+              <div class="row">
+                <span class="dot work"></span><span class="t">Review #517 ledger writes</span
+                ><span class="pchip" style="background: var(--vio-s); color: var(--vio)"
+                  >watch</span
+                >
+              </div>
+              <div class="sec">Active</div>
+              <div class="row">
+                <span class="dot"></span><span class="t">Retry status banner</span
+                ><span class="pchip">checkout-web</span>
+              </div>
+              <div class="row">
+                <span class="dot ok"></span><span class="t">Idempotency key audit</span
+                ><span class="pchip">payments-svc</span>
+              </div>
+              <div class="foot"><div class="row">⚙ Settings</div></div>
+            </aside>
+            <div class="ibx">
+              <div class="ilist">
+                <div class="ihdr">
+                  <h1>Inbox</h1>
+                  <div class="filters">
+                    <span class="chip pri">All 6</span><span class="chip">Ready for you 2</span
+                    ><span class="chip">Handling 1</span><span class="chip">Needs you 2</span
+                    ><span class="chip">FYI 1</span
+                    ><span class="chip" style="margin-left: auto">All spaces ▾</span>
+                  </div>
+                </div>
+                <div class="igrp">Ready for you</div>
+                <div class="item sel">
+                  <span class="cn c-gh">GH</span>
+                  <div class="b">
+                    <div class="l1">
+                      <b>#482 · 4 comments from dana</b><span class="tm">6m</span>
+                    </div>
+                    <div class="l2">
+                      Changes requested. Prepared: 3 commits and 4 draft replies.
+                    </div>
+                    <div class="l3">
+                      <span class="pol prepare">prepare</span
+                      ><span class="chip" style="font-size: 10.5px"
+                        >→ thread · Add retry backoff</span
+                      ><span class="chip" style="font-size: 10.5px">Payments retry</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="item">
+                  <span class="cn c-gh">GH</span>
+                  <div class="b">
+                    <div class="l1">
+                      <b>#517 · review requested by sam</b><span class="tm">18m</span>
+                    </div>
+                    <div class="l2">
+                      Draft review: 2 blocking, 3 nits, verdict "request changes".
+                    </div>
+                    <div class="l3">
+                      <span class="pol prepare">prepare</span
+                      ><span class="chip" style="font-size: 10.5px"
+                        >→ new review thread · worktree</span
+                      ><span class="chip warn" style="font-size: 10.5px">due in 6h</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="igrp">Handling</div>
+                <div class="item">
+                  <span class="cn c-gh">GH</span>
+                  <div class="b">
+                    <div class="l1">
+                      <b>#509 · CI failed: integration-tests</b><span class="tm">2m</span>
+                    </div>
+                    <div class="l2">
+                      <span class="spin"></span> Classifying. The same test failed 3× this week on
+                      main, so it looks flaky.
+                    </div>
+                    <div class="l3"><span class="pol prepare">prepare</span></div>
+                  </div>
+                </div>
+                <div class="igrp">Needs you</div>
+                <div class="item">
+                  <span class="cn c-jira">J</span>
+                  <div class="b">
+                    <div class="l1"><b>ABC-140 assigned to you</b><span class="tm">1h</span></div>
+                    <div class="l2">Brief: dead-letter replay UI, depends on ABC-131, 3 pts.</div>
+                    <div class="l3">
+                      <span class="pol brief">brief</span
+                      ><span class="btn" style="font-size: 11px; padding: 1px 8px"
+                        >Start plan thread</span
+                      >
+                    </div>
+                  </div>
+                </div>
+                <div class="item">
+                  <span class="cn c-conf">C</span>
+                  <div class="b">
+                    <div class="l1"><b>Mention in Tech design v2</b><span class="tm">2h</span></div>
+                    <div class="l2">
+                      "@matthias is 5 attempts enough for card networks?" Answer drafted, citing
+                      ADR-007.
+                    </div>
+                    <div class="l3">
+                      <span class="pol brief">brief</span
+                      ><span class="btn" style="font-size: 11px; padding: 1px 8px"
+                        >Review answer</span
+                      >
+                    </div>
+                  </div>
+                </div>
+                <div class="igrp">FYI</div>
+                <div class="item">
+                  <span class="cn c-gh">GH</span>
+                  <div class="b">
+                    <div class="l1">
+                      <b>#498 approved · checks green</b><span class="tm">3h</span>
+                    </div>
+                    <div class="l2">Ready to merge. Merging stays a human click.</div>
+                    <div class="l3">
+                      <span class="pol notify">notify</span
+                      ><span class="btn" style="font-size: 11px; padding: 1px 8px">Merge</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="idet">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <span class="cn c-gh">GH</span>
+                  <h2>#482 Add retry backoff · review from dana</h2>
+                  <span class="chip warn" style="margin-left: auto">changes requested</span>
+                </div>
+                <div class="route">
+                  Routed by <span class="chip">thread affinity</span> 4 signals coalesced into
+                  <span class="chip">1 run</span> wake <span class="chip">1 / 10</span> on
+                  <span class="chip">vps-01 · handling env</span> model
+                  <span class="chip">Claude Sonnet</span>
+                </div>
+                <div class="cmt">
+                  <div class="q">
+                    <b>dana</b> on <code>retry/policy.ts:14</code> · "nit: <code>maxTries</code> →
+                    <code>maxAttempts</code> to match the design"
+                  </div>
+                  <div class="a">
+                    <span class="cls nit">nit</span>
+                    <div>
+                      Renamed in <span class="sha">a1c3f9e</span>. Draft reply: "Renamed, thanks."
+                    </div>
+                  </div>
+                </div>
+                <div class="cmt">
+                  <div class="q">
+                    <b>dana</b> on <code>retry/policy.ts:31</code> · "Why full jitter? Tech design
+                    §4.2 says equal jitter."
+                  </div>
+                  <div class="a">
+                    <span class="cls fix">fix</span>
+                    <div>
+                      Switched to equal jitter in <span class="sha">b72e011</span>, test updated.
+                      Draft reply cites <span class="cite">tech design §4.2</span>.
+                    </div>
+                  </div>
+                </div>
+                <div class="cmt">
+                  <div class="q"><b>dana</b> · "Can we delete the cron path in this PR?"</div>
+                  <div class="a">
+                    <span class="cls push">push back</span>
+                    <div>
+                      No code change. Draft reply: "Keeping it until <code>pay_retry_v2</code> is at
+                      100%, per the decision on 9 Nov." <span class="cite">space memory</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="cmt">
+                  <div class="q"><b>dana</b> · "Add a metric for exhausted retries"</div>
+                  <div class="a">
+                    <span class="cls fix">fix</span>
+                    <div>
+                      Added <code>payments.retry.exhausted</code> counter + test in
+                      <span class="sha">c0d4a55</span>.
+                    </div>
+                  </div>
+                </div>
+                <div class="route">
+                  3 commits · +41 −9 ·
+                  <span style="color: var(--ok)">project checks passed in worktree</span> · nothing
+                  pushed yet
+                </div>
+                <div class="acts2">
+                  <span class="btn p">Approve: push + post 4 replies</span
+                  ><span class="btn">Edit replies</span><span class="btn">Open thread</span
+                  ><span class="btn g" style="margin-left: auto">Snooze ▾</span>
+                </div>
+                <div class="card" style="padding: 10px 12px">
+                  <h3 style="margin-bottom: 6px">
+                    Your watches <span class="r">handled on vps-01 · quiet hours 20:00–08:00</span>
+                  </h3>
+                  <div class="wtable">
+                    <span>GitHub · review requested from me</span
+                    ><span class="pol prepare">prepare</span>
+                    <span>GitHub · reviews &amp; comments on my PRs</span
+                    ><span class="pol prepare">prepare</span>
+                    <span>GitHub · CI failed / conflict on my PRs</span
+                    ><span class="pol prepare">prepare</span>
+                    <span>Jira · assigned to me · Confluence · mentions</span
+                    ><span class="pol brief">brief</span>
+                    <span>Sentry · alerts in watched projects → steward</span
+                    ><span class="pol brief">brief</span>
+                    <span>Bots (except lint-bot) · merge-ready · stale &gt; 24h</span
+                    ><span class="pol notify">notify</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const fit = () =>
+        document.querySelectorAll(".stage").forEach((st) => {
+          const inner = st.firstElementChild;
+          const s = Math.min(1, st.clientWidth / 1120);
+          inner.style.transform = `scale(${s})`;
+          st.style.height = Math.ceil(inner.offsetHeight * s) + "px";
+        });
+      new ResizeObserver(fit).observe(document.body);
+      fit();
+    </script>
+  </body>
+</html>
